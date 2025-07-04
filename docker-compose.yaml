@@ -1,0 +1,40 @@
+name: comdel
+
+services:
+  frontend:
+    build: ./comdel
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+    networks:
+      - db
+
+  backend:
+    build: ./comdel-backend
+    ports:
+      - "8080:8080"
+    networks:
+      - db
+    depends_on:
+      - database
+  database:
+    image: postgres:14
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=comdel
+    networks:
+      - db
+    volumes:
+      - comdel_pgdata:/var/lib/postgresql/data
+
+networks:
+  db:
+    driver: bridge
+
+volumes:
+  comdel_pgdata:
+    
