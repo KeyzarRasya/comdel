@@ -2,7 +2,6 @@ package repository
 
 import (
 	"context"
-	"time"
 
 	"github.com/KeyzarRasya/comdel-server/internal/model"
 	"github.com/jackc/pgx/v5"
@@ -10,15 +9,26 @@ import (
 
 type VideoRepository interface {
 	GetById(videoId string)											(*model.Videos, error)
-	GetYoutubeIdById(id string)										(string, error)
-	Save(video model.Videos)										error
-	UpdateVideo(videoId string, cooldown time.Time, userId string)	error
-	CheckOwnership(userChId string, vidId string)					(bool, error)
-	IsCanUpload(userd string)										(bool, error)
+	Save(tx pgx.Tx, video model.Videos)								error
+	// UpdateVideo(videoId string, cooldown time.Time, userId string)	error
 }
 
 type VideoRepositoryImpl struct {
 	conn *pgx.Conn;
+}
+
+func NewVideoRepository(pgxConn *pgx.Conn) VideoRepository {
+	return &VideoRepositoryImpl{conn: pgxConn}
+}
+
+func (vr *VideoRepositoryImpl) Save(tx pgx.Tx, video model.Videos) error {
+	_, err := tx.Exec(
+		context.Background(),
+		"INSERT INTO videos(videos_id, title, owner, thumbnail, strategy, scheduler) VALUES ($1, $2, $3, $4, $5, $6)",
+		video.Id, video.Title, video.Owner, video.Thumbnail, video.Strategy, video.Scheduler,
+	)
+
+	return err;
 }
 
 func (vr *VideoRepositoryImpl) GetById(videoId string) (*model.Videos, error) {
