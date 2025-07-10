@@ -9,7 +9,20 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-func CreatePayment(c *fiber.Ctx) error {
+type PaymentHandlers interface{
+	CreatePayment(c *fiber.Ctx)		error;
+	FinishPayment(c *fiber.Ctx)		error
+}
+
+type PaymentHandlersImpl struct {
+	PaymentService services.PaymentService
+}
+
+func NewPaymentHandlers(paymentService services.PaymentService) PaymentHandlers {
+	return &PaymentHandlersImpl{PaymentService: paymentService}
+}
+
+func (ph *PaymentHandlersImpl) CreatePayment(c *fiber.Ctx) error {
 	cookie := c.Cookies("jwt")
 	planQuery := c.Query("plan")
 	var premiumPlan dto.PremiumPlan;
@@ -20,12 +33,12 @@ func CreatePayment(c *fiber.Ctx) error {
 		premiumPlan = dto.Newbie
 	}
 
-	var response dto.Response = services.Pay(cookie, premiumPlan);
+	var response dto.Response = ph.PaymentService.Pay(cookie, premiumPlan);
 
 	return c.Redirect(fmt.Sprint(response.Data))
 }
 
-func HandleFinishPayment(c *fiber.Ctx) error {
+func (ph *PaymentHandlersImpl) FinishPayment(c *fiber.Ctx) error {
 	queries := c.Queries();
 	cookie := c.Cookies("jwt");
 
@@ -35,7 +48,7 @@ func HandleFinishPayment(c *fiber.Ctx) error {
 		Status: queries["transaction_status"],
 	}
 
-	var response dto.Response = services.FinishPayment(cookie, transactionStatus);
+	var response dto.Response = ph.PaymentService.Finish(cookie, transactionStatus);
 
 	if response.Status != fiber.StatusOK {
 		return c.JSON(response.JSON())
