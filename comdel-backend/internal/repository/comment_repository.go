@@ -3,8 +3,8 @@ package repository
 import (
 	"context"
 
-	"github.com/KeyzarRasya/comdel-server/internal/model"
-	"github.com/jackc/pgx/v5"
+	"comdel-backend/internal/config"
+	"comdel-backend/internal/model"
 )
 
 type CommentRepository interface {
@@ -12,17 +12,15 @@ type CommentRepository interface {
 }
 
 type CommentRepositoryImpl struct {
-	conn *pgx.Conn;
+	conn config.DBConn;
 }
 
-func NewCommentRepository(pgxConn *pgx.Conn) CommentRepository {
+func NewCommentRepository(pgxConn config.DBConn) CommentRepository {
 	return &CommentRepositoryImpl{conn: pgxConn}
 }
 
 func (cr *CommentRepositoryImpl) GetByVideoId(videoId string) ([]*model.Comment, error) {
 	var comments []*model.Comment;
-	var yCommentId, publishedAt, channelId, channelUrl, displayName, profileUrl, textDisplay string;
-	var isDetected bool;
 
 	rows, err := cr.conn.Query(
 		context.Background(),
@@ -34,21 +32,16 @@ func (cr *CommentRepositoryImpl) GetByVideoId(videoId string) ([]*model.Comment,
 		return nil, err
 	}
 
-	_, err = pgx.ForEachRow(rows, []any{&yCommentId, &publishedAt, &channelId, &channelUrl, &displayName, &profileUrl, &textDisplay, &isDetected}, func () error  {
-		comments = append(comments, &model.Comment{
-			Yid: yCommentId,
-			PublishedAt: publishedAt,
-			ChannelId: channelId,
-			ChannelUrl: channelUrl,
-			DisplayName: displayName,
-			ProfileUrl: profileUrl,
-			TextDisplay: textDisplay,
-			Isdetected: isDetected,
-		})
-		return nil
-	})
-
-	if err != nil {
+	for rows.Next() {
+		var comment model.Comment;
+		err := rows.Scan(&comment.Yid, &comment.PublishedAt, &comment.ChannelId, &comment.ChannelUrl, &comment.DisplayName, &comment.ProfileUrl, &comment.TextDisplay, &comment.Isdetected)
+		if err != nil {
+			return nil, err
+		}
+		comments = append(comments, &comment)
+	}
+	
+	if err := rows.Err() ;err != nil {
 		return nil, err;
 	}
 

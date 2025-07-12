@@ -9,27 +9,27 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/KeyzarRasya/comdel-server/internal/dto"
-	"github.com/KeyzarRasya/comdel-server/internal/model"
-	"github.com/jackc/pgx/v5"
+	"comdel-backend/internal/config"
+	"comdel-backend/internal/dto"
+	"comdel-backend/internal/model"
 )
 
 type TransactionRepository interface {
-	Create(tx pgx.Tx, transaction dto.Transaction) 						error
+	Create(tx config.DBTx, transaction dto.Transaction) 						error
 	GetPremiumPlan(orderId string)										(string, error)
-	UpdateTransactionStatus(tx pgx.Tx, status string, orderId string)	error
+	UpdateTransactionStatus(tx config.DBTx, status string, orderId string)	error
 	Status(orderid string)												(*model.Subscription, error)
 }
 
 type TransactionRepositoryImpl struct {
-	conn *pgx.Conn;
+	conn config.DBConn;
 }
 
-func NewTransactionRepository(pgxConn *pgx.Conn) TransactionRepository {
+func NewTransactionRepository(pgxConn config.DBConn) TransactionRepository {
 	return &TransactionRepositoryImpl{conn: pgxConn}
 }
 
-func (tr *TransactionRepositoryImpl) Create(tx pgx.Tx, transaction dto.Transaction) error {
+func (tr *TransactionRepositoryImpl) Create(tx config.DBTx, transaction dto.Transaction) error {
 	_, err := tx.Exec(
 		context.Background(),
 		"INSERT INTO transaction(user_id, order_id, premium_plan) VALUES($1, $2, $3)",
@@ -54,7 +54,7 @@ func (tr *TransactionRepositoryImpl) GetPremiumPlan(orderId string)	(string, err
 	return premiumPlan, nil
 }
 
-func (tr *TransactionRepositoryImpl) UpdateTransactionStatus(tx pgx.Tx, status string, orderId string) error {
+func (tr *TransactionRepositoryImpl) UpdateTransactionStatus(tx config.DBTx, status string, orderId string) error {
 	_, err := tx.Exec(
 		context.Background(),
 		"UPDATE transaction SET transaction_status=$1 WHERE order_id=$2",

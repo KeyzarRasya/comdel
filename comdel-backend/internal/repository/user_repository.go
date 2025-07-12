@@ -4,42 +4,44 @@ import (
 	"context"
 	"time"
 
-	"github.com/KeyzarRasya/comdel-server/internal/model"
+	"comdel-backend/internal/config"
+	"comdel-backend/internal/model"
+
 	"github.com/jackc/pgx/v5"
 )
 
 type UserRepository interface {
 	GetByIdWithVideo(id string)										(*model.User, []string, error);
-	GetIDByGID(tx pgx.Tx, googleId string)							(string, error);
+	GetIDByGID(tx config.DBTx, googleId string)							(string, error);
 	GetNameById(userId string)										(string, error);
 	GetYoutubeIdById(id string)										(string, error);
 
 	GetSubsIdById(userId string)									(string, error);
 	IsCooldown(userId string)										(bool, error)
 
-	IsGIDAvail(tx pgx.Tx, gid string, googleId *string)				(bool, error);
+	IsGIDAvail(tx config.DBTx, gid string, googleId *string)				(bool, error);
 	// Save(user model.User)											error;
-	SaveReturningId(tx pgx.Tx, user model.User, userId *string)		error;
-	DeactivateSubscription(tx pgx.Tx, userId string)				error;
+	SaveReturningId(tx config.DBTx, user model.User, userId *string)		error;
+	DeactivateSubscription(tx config.DBTx, userId string)				error;
 
-	UpdateVideos(tx pgx.Tx, videoId string, userId string, cooldown time.Time)	error
+	UpdateVideos(tx config.DBTx, videoId string, userId string, cooldown time.Time)	error
 
 	/*
 		Restricted Function
 	*/
-	GrantSubscriptionAccess(tx pgx.Tx, userId string) error;
+	GrantSubscriptionAccess(tx config.DBTx, userId string) error;
 }
 
 
 type UserRepositoryImpl struct {
-	conn *pgx.Conn;
+	conn config.DBConn;
 }
 
-func NewUserRepository(pgxConn *pgx.Conn) UserRepository {
+func NewUserRepository(pgxConn config.DBConn) UserRepository {
 	return &UserRepositoryImpl{conn: pgxConn}
 }
 
-func (ur *UserRepositoryImpl) SaveReturningId(tx pgx.Tx, user model.User, userId *string) error {
+func (ur *UserRepositoryImpl) SaveReturningId(tx config.DBTx, user model.User, userId *string) error {
 	err := tx.QueryRow(
 		context.Background(), 
 		"INSERT INTO user_info (name, given_name, email, isverified, picture, g_id, youtube_id, title_snippet) VALUES($1, $2, $3, $4, $5, $6, $7, $8) RETURNING user_id",
@@ -82,7 +84,7 @@ func (ur *UserRepositoryImpl) GetNameById(userId string) (string, error) {
 	return username, nil
 }
 
-func (ur *UserRepositoryImpl) GetIDByGID(tx pgx.Tx, googleId string) (string, error) {
+func (ur *UserRepositoryImpl) GetIDByGID(tx config.DBTx, googleId string) (string, error) {
 	var userId string;
 	err := tx.QueryRow(
 		context.Background(),
@@ -113,7 +115,7 @@ func (ur *UserRepositoryImpl) GetYoutubeIdById(id string) (string, error) {
 	return youtubeId, err;
 }
 
-func (ur *UserRepositoryImpl) IsGIDAvail(tx pgx.Tx, gid string, googleId *string) (bool, error) {
+func (ur *UserRepositoryImpl) IsGIDAvail(tx config.DBTx, gid string, googleId *string) (bool, error) {
 	err := tx.QueryRow(
 		context.Background(), 
 		"SELECT g_id FROM user_info WHERE g_id=$1", 
@@ -165,7 +167,7 @@ func (ur *UserRepositoryImpl) GetSubsIdById(userId string) (string, error) {
 	return subsId, nil
 }
 
-func (ur *UserRepositoryImpl) UpdateVideos(tx pgx.Tx, videoId string, userId string, cooldown time.Time) error {
+func (ur *UserRepositoryImpl) UpdateVideos(tx config.DBTx, videoId string, userId string, cooldown time.Time) error {
 	_, err := tx.Exec(
 		context.Background(),
 		"UPDATE user_info SET videos = array_append(videos, $1), upload_cooldown=$2 WHERE user_id=$3",
@@ -175,7 +177,7 @@ func (ur *UserRepositoryImpl) UpdateVideos(tx pgx.Tx, videoId string, userId str
 	return err;
 }
 
-func (ur *UserRepositoryImpl) DeactivateSubscription(tx pgx.Tx, userId string) error {
+func (ur *UserRepositoryImpl) DeactivateSubscription(tx config.DBTx, userId string) error {
 	_, err := tx.Exec(
 		context.Background(),
 		"UPDATE user_info SET subscription = 'NONE', premium_plan='NONE', subs_id=null WHERE user_id=$1",
@@ -185,7 +187,7 @@ func (ur *UserRepositoryImpl) DeactivateSubscription(tx pgx.Tx, userId string) e
 	return err
 }
 
-func (ur *UserRepositoryImpl) GrantSubscriptionAccess(tx pgx.Tx, userId string) error {
+func (ur *UserRepositoryImpl) GrantSubscriptionAccess(tx config.DBTx, userId string) error {
 	var subscriptionExpiry time.Time = time.Now().Add((time.Hour * 24) * 30);
 
 	_, err := tx.Exec(

@@ -4,25 +4,25 @@ import (
 	"context"
 	"time"
 
-	"github.com/KeyzarRasya/comdel-server/internal/model"
-	"github.com/jackc/pgx/v5"
+	"comdel-backend/internal/config"
+	"comdel-backend/internal/model"
 )
 
 type SubscriptionRepository interface {
-	SaveReturningSubsId(tx pgx.Tx, userId string, subscription *model.Subscription, premiumPlan string)		(string, error);
-	Activate(tx pgx.Tx, plan string, subsId string, userId string)							error;
+	SaveReturningSubsId(tx config.DBTx, userId string, subscription *model.Subscription, premiumPlan string)		(string, error);
+	Activate(tx config.DBTx, plan string, subsId string, userId string)							error;
 	GetExpiryTimeBySubsId(subsId string)													(time.Time, error)
 }
 
 type SubscriptionRepositoryImpl struct {
-	conn *pgx.Conn;
+	conn config.DBConn;
 }
 
-func NewSubscriptionRepository(pgxConn *pgx.Conn) SubscriptionRepository {
+func NewSubscriptionRepository(pgxConn config.DBConn) SubscriptionRepository {
 	return &SubscriptionRepositoryImpl{conn: pgxConn}
 }
 
-func (sr *SubscriptionRepositoryImpl) SaveReturningSubsId(tx pgx.Tx, userId string, subscription *model.Subscription, premiumPlan string) (string, error) {
+func (sr *SubscriptionRepositoryImpl) SaveReturningSubsId(tx config.DBTx, userId string, subscription *model.Subscription, premiumPlan string) (string, error) {
 	var subsId string;
 	subscription.End = time.Now().Add((time.Hour * 24) * 30);
 		
@@ -42,7 +42,7 @@ func (sr *SubscriptionRepositoryImpl) SaveReturningSubsId(tx pgx.Tx, userId stri
 	return subsId, nil
 }
 
-func (sr *SubscriptionRepositoryImpl) Activate(tx pgx.Tx, plan string, subsId string, userId string) error {
+func (sr *SubscriptionRepositoryImpl) Activate(tx config.DBTx, plan string, subsId string, userId string) error {
 	_, err := tx.Exec(
 		context.Background(),
 		"UPDATE user_info SET subscription = 'ACTIVE', premium_plan = $1, subs_id = $2 WHERE user_id=$3",

@@ -3,25 +3,25 @@ package repository
 import (
 	"context"
 
-	"github.com/KeyzarRasya/comdel-server/internal/model"
-	"github.com/jackc/pgx/v5"
+	"comdel-backend/internal/config"
+	"comdel-backend/internal/model"
 )
 
 type VideoRepository interface {
 	GetById(videoId string)											(*model.Videos, error)
-	Save(tx pgx.Tx, video model.Videos)								error
+	Save(tx config.DBTx, video model.Videos)								error
 	// UpdateVideo(videoId string, cooldown time.Time, userId string)	error
 }
 
 type VideoRepositoryImpl struct {
-	conn *pgx.Conn;
+	conn config.DBConn;
 }
 
-func NewVideoRepository(pgxConn *pgx.Conn) VideoRepository {
+func NewVideoRepository(pgxConn config.DBConn) VideoRepository {
 	return &VideoRepositoryImpl{conn: pgxConn}
 }
 
-func (vr *VideoRepositoryImpl) Save(tx pgx.Tx, video model.Videos) error {
+func (vr *VideoRepositoryImpl) Save(tx config.DBTx, video model.Videos) error {
 	_, err := tx.Exec(
 		context.Background(),
 		"INSERT INTO videos(videos_id, title, owner, thumbnail, strategy, scheduler) VALUES ($1, $2, $3, $4, $5, $6)",

@@ -1,26 +1,26 @@
 package repository
 
 import (
+	"comdel-backend/internal/config"
 	"context"
 
-	"github.com/jackc/pgx/v5"
 	"golang.org/x/oauth2"
 )
 
 type TokenRepository interface {
-	Save(tx pgx.Tx, token *oauth2.Token, userId string)		error;
+	Save(tx config.DBTx, token *oauth2.Token, userId string)		error;
 	GetByOwnerId(ownerId string)							(*oauth2.Token, error)
 }
 
 type TokenRepositoryImpl struct {
-	conn *pgx.Conn;
+	conn config.DBConn;
 }
 
-func NewTokenRepository(pgxConn *pgx.Conn) TokenRepository {
+func NewTokenRepository(pgxConn config.DBConn) TokenRepository {
 	return &TokenRepositoryImpl{conn: pgxConn}
 }
 
-func (tr *TokenRepositoryImpl) Save(tx pgx.Tx, token *oauth2.Token, userId string) error {
+func (tr *TokenRepositoryImpl) Save(tx config.DBTx, token *oauth2.Token, userId string) error {
 	_, err := tx.Exec(
 		context.Background(),
 		"INSERT INTO oauth_token (access_token, refresh_token, expiry, owner_id) VALUES ($1, $2, $3, $4)",
