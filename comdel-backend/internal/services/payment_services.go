@@ -8,6 +8,7 @@ import (
 	"github.com/KeyzarRasya/comdel-server/internal/config"
 	"github.com/KeyzarRasya/comdel-server/internal/dto"
 	"github.com/KeyzarRasya/comdel-server/internal/helper"
+	"github.com/KeyzarRasya/comdel-server/internal/repository"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/log"
 	"github.com/google/uuid"
@@ -15,14 +16,43 @@ import (
 	"github.com/midtrans/midtrans-go/snap"
 )
 
-func Pay(cookie string, plan dto.PremiumPlan) dto.Response {
+type PaymentService interface {
+	Pay(cookie string, plan dto.PremiumPlan) dto.Response;
+	Finish(cookie string, transactionStatus dto.TransactionStatus) dto.Response;
+	Unsubscribe(cookies string)	dto.Response;
+}
+
+type PaymentServiceImpl struct {
+	UserRepository repository.UserRepository;
+	TransactionRepository repository.TransactionRepository;
+	SubscriptionRepository repository.SubscriptionRepository;
+}
+
+/*
+	Constructor for Creating
+	PaymentService
+	=====
+	Also injecting dependency
+*/
+func NewPaymentService(
+	userRepository repository.UserRepository,
+	transactionRepository repository.TransactionRepository,
+	subscriptionRepository repository.SubscriptionRepository,
+) PaymentService {
+	return &PaymentServiceImpl{
+		UserRepository: userRepository,
+		TransactionRepository: transactionRepository,
+		SubscriptionRepository: subscriptionRepository,
+	}
+}
+
+func (ps *PaymentServiceImpl) Pay(cookie string, plan dto.PremiumPlan) dto.Response {
 	var client snap.Client;
-	var userName string;
+	var transaction dto.Transaction;
 
 	conn := config.LoadDatabase();
 
 	userId, err := helper.VerifyAndGet(cookie);
-
 	if err != nil {
 		return dto.Response{
 			Status: fiber.StatusBadRequest,
@@ -31,14 +61,16 @@ func Pay(cookie string, plan dto.PremiumPlan) dto.Response {
 		}
 	}
 
-	err = conn.QueryRow(
-		context.Background(),
-		"SELECT name FROM user_info WHERE user_id=$1",
-		userId,
-	).Scan(&userName)
+	username, err := ps.UserRepository.GetNameById(userId);
+	if err != nil {
+		return dto.Response{
+			Status: fiber.StatusBadRequest,
+			Message: "Failed to get name",
+			Data: err.Error(),
+		}
+	}
 
 	tx, err := conn.Begin(context.Background())
-
 	if err != nil {
 		return dto.Response{
 			Status: fiber.StatusBadRequest,
@@ -46,29 +78,24 @@ func Pay(cookie string, plan dto.PremiumPlan) dto.Response {
 			Data: nil,
 		}
 	}
-
-
 	defer tx.Rollback(context.Background());
-
 
 	client.New(os.Getenv("MIDTRANS_SERVER_KEY"), midtrans.Sandbox)
 
-	var orderId string = uuid.NewString();
-	var price int64;
-	var planStr string;
+	transaction.OrderId = uuid.NewString()
 
 	if plan == dto.Creator {
-		planStr = "CREATOR";
-		price = 20000;
+		transaction.Plan = "CREATOR";
+		transaction.Price = 20000;
 	} else {
-		planStr = "NEWBIE";
-		price = 15000;
+		transaction.Plan = "NEWBIE";
+		transaction.Price = 15000;
 	}
 
 	req := & snap.Request{
 		TransactionDetails: midtrans.TransactionDetails{
-			OrderID: orderId,
-			GrossAmt: price,
+			OrderID: transaction.OrderId,
+			GrossAmt: transaction.Price,
 		},
 
 		CreditCard: &snap.CreditCardDetails{
@@ -76,7 +103,7 @@ func Pay(cookie string, plan dto.PremiumPlan) dto.Response {
 		},
 
 		CustomerDetail: &midtrans.CustomerDetails{
-			FName: userName,
+			FName: username,
 		},
 
 		
@@ -84,18 +111,12 @@ func Pay(cookie string, plan dto.PremiumPlan) dto.Response {
 
 	resp, _ := client.CreateTransaction(req)
 
-
-	_, err = tx.Exec(
-		context.Background(),
-		"INSERT INTO transaction(user_id, order_id, premium_plan) VALUES($1, $2, $3)",
-		userId, orderId, planStr,
-	)
-
+	err = ps.TransactionRepository.Create(tx, transaction)
 	if err != nil {
 		return dto.Response{
 			Status: fiber.StatusBadRequest,
-			Message: err.Error(),
-			Data: nil,
+			Message: "Failed to create transaction",
+			Data: err.Error(),
 		}
 	}
 
@@ -108,13 +129,10 @@ func Pay(cookie string, plan dto.PremiumPlan) dto.Response {
 	}
 }
 
-func FinishPayment(cookie string, transaction dto.TransactionStatus) dto.Response {
+func (ps *PaymentServiceImpl) Finish(cookie string, transaction dto.TransactionStatus) dto.Response {
 	conn := config.LoadDatabase()
-	var premiumPlan string;
-	var subsId string;
-
+	
 	userId, err := helper.VerifyAndGet(cookie)
-
 	if err != nil {
 		return dto.Response{
 			Status: fiber.StatusBadRequest,
@@ -123,8 +141,7 @@ func FinishPayment(cookie string, transaction dto.TransactionStatus) dto.Respons
 		}
 	}
 
-
-	statusResponse, err := dto.Status(transaction.OrderID);
+	subscription, err := ps.TransactionRepository.Status(transaction.OrderID);
 	
 	if err != nil {
 		return dto.Response{
@@ -134,14 +151,7 @@ func FinishPayment(cookie string, transaction dto.TransactionStatus) dto.Respons
 		}
 	}
 
-	err = conn.QueryRow(
-		context.Background(),
-		"SELECT premium_plan FROM transaction WHERE order_id=$1",
-		statusResponse.OrderID,
-	).Scan(&premiumPlan)
-
-	tx, err := conn.Begin(context.Background());
-
+	premiumPlan, err := ps.TransactionRepository.GetPremiumPlan(subscription.OrderID)
 	if err != nil {
 		return dto.Response{
 			Status: fiber.StatusBadRequest,
@@ -150,14 +160,17 @@ func FinishPayment(cookie string, transaction dto.TransactionStatus) dto.Respons
 		}
 	}
 
+	tx, err := conn.Begin(context.Background());
+	if err != nil {
+		return dto.Response{
+			Status: fiber.StatusBadRequest,
+			Message: "Failed to begin transaction",
+			Data: err.Error(),
+		}
+	}
 	defer tx.Rollback(context.Background())
 
-	_, err = tx.Exec(
-		context.Background(),
-		"UPDATE transaction SET transaction_status=$1 WHERE order_id=$2",
-		statusResponse.TransactionStatus, statusResponse.OrderID,
-	)
-
+	err = ps.TransactionRepository.UpdateTransactionStatus(tx, subscription.TransactionStatus, subscription.OrderID);
 	if err != nil {
 		return dto.Response{
 			Status: fiber.StatusBadRequest,
@@ -166,20 +179,8 @@ func FinishPayment(cookie string, transaction dto.TransactionStatus) dto.Respons
 		}
 	}
 
-	if statusResponse.TransactionStatus == "capture" {
-		subscriptionEnd := time.Now().Add((time.Hour * 24) * 30);
-
-		
-		err = tx.QueryRow(
-			context.Background(),
-			"INSERT INTO subscription(user_id, bank, transaction_time, payment_type, fraud_status, status_code, settlement_time, expiry_time, transaction_status, premium_plan) VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING subs_id",
-			userId, statusResponse.Bank, statusResponse.TransactionTime.Time(), statusResponse.PaymentType, statusResponse.FraudStatus, statusResponse.StatusCode, statusResponse.SettlementTime.Time(), subscriptionEnd, statusResponse.TransactionStatus, premiumPlan,
-		).Scan(&subsId)
-
-		statusResponse.ExpiryTime = dto.MidtransTime(subscriptionEnd);
-		statusResponse.PremiumPlan = premiumPlan;
-
-
+	if subscription.TransactionStatus == "capture" {
+		subsId, err := ps.SubscriptionRepository.SaveReturningSubsId(tx, userId, subscription, premiumPlan)
 		if err != nil {
 			return dto.Response{
 				Status: fiber.StatusBadRequest,
@@ -188,12 +189,7 @@ func FinishPayment(cookie string, transaction dto.TransactionStatus) dto.Respons
 			}
 		}
 
-		_, err = tx.Exec(
-			context.Background(),
-			"UPDATE user_info SET subscription = 'ACTIVE', premium_plan = 'CREATOR', subs_id = $1 WHERE user_id=$2",
-			subsId, userId,
-		)
-
+		err = ps.SubscriptionRepository.Activate(tx, premiumPlan, subsId, userId)
 		if err != nil {
 			return dto.Response{
 				Status: fiber.StatusBadRequest,
@@ -203,25 +199,20 @@ func FinishPayment(cookie string, transaction dto.TransactionStatus) dto.Respons
 		}
 	}
 
-
 	tx.Commit(context.Background());
 
 	return dto.Response{
 		Status: fiber.StatusOK,
 		Message: "Successfully subcribe",
-		Data: nil,
+		Data: subscription,
 	}
 
 }
 
-func Unsubscribe(cookie string) dto.Response {
+func (ps *PaymentServiceImpl) Unsubscribe(cookie string) dto.Response {
 	conn := config.LoadDatabase()
 
-	var expiryTime time.Time;
-	var subsId string;
-
 	userId, err := helper.VerifyAndGet(cookie);
-
 	if err != nil {
 		return dto.Response{
 			Status: fiber.StatusBadRequest,
@@ -230,16 +221,21 @@ func Unsubscribe(cookie string) dto.Response {
 		}
 	}
 
-	err = conn.QueryRow(
-		context.Background(),
-		"SELECT subs_id from user_info WHERE user_id=$1",
-		userId,
-	).Scan(&subsId)
+	subsId, err := ps.UserRepository.GetSubsIdById(userId);
 
 	if err != nil {
 		return dto.Response{
 			Status: fiber.StatusBadRequest,
 			Message: "Failed to get subscription information",
+			Data: err.Error(),
+		}
+	}
+
+	expiryTime, err := ps.SubscriptionRepository.GetExpiryTimeBySubsId(subsId)
+	if err != nil {
+		return dto.Response{
+			Status: fiber.StatusBadRequest,
+			Message: "Failed to get expiry information",
 			Data: err.Error(),
 		}
 	}
@@ -256,19 +252,6 @@ func Unsubscribe(cookie string) dto.Response {
 
 	defer tx.Rollback(context.Background())
 
-	err = tx.QueryRow(
-		context.Background(),
-		"SELECT expiry_time FROM subscription WHERE subs_id=$1",
-		subsId,
-	).Scan(&expiryTime);
-
-	if err != nil {
-		return dto.Response{
-			Status: fiber.StatusBadRequest,
-			Message: "Failed to get expiry information",
-			Data: err.Error(),
-		}
-	}
 
 	if time.Now().Before(expiryTime) {
 		log.Info("True")
@@ -281,12 +264,7 @@ func Unsubscribe(cookie string) dto.Response {
 
 	}
 
-	_, err = tx.Exec(
-		context.Background(),
-		"UPDATE user_info SET subscription = 'NONE', premium_plan='NONE', subs_id=null WHERE user_id=$1",
-		userId,
-	)
-
+	err = ps.UserRepository.DeactivateSubscription(tx, userId)
 	if err != nil {
 		return dto.Response{
 			Status: fiber.StatusBadRequest,

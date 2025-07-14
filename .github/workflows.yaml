@@ -1,0 +1,41 @@
+name: backend-ci
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    name: build-dependency
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.24.2
+
+      - name: build project
+        run: go get .
+  
+  test:
+    name: test-dependency
+    needs: build
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.24.2
+      - name: test code
+        run: |
+          cd comdel-backend/internal/services
+          go test -v ./...

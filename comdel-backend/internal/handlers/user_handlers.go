@@ -14,13 +14,28 @@ import (
 	"golang.org/x/oauth2"
 )
 
+type UserHandlers interface {
+	Main(c *fiber.Ctx)			error
+	OAuthLogin(c *fiber.Ctx)	error
+	OAuthRedirect(c *fiber.Ctx)	error
+	UserInfo(c *fiber.Ctx)		error
+}
 
-func MainHandlers(c *fiber.Ctx) error {
+type UserHandlersImpl struct {
+	UserService services.UserService
+}
+
+func NewUserHandlers(UserService services.UserService) UserHandlers {
+	return &UserHandlersImpl{UserService: UserService}
+}
+
+
+func (uh *UserHandlersImpl) Main(c *fiber.Ctx) error {
 	log.Info(string(c.Request().Header.Cookie("jwt")));
 	return c.SendString("Hello");
 }
 
-func OAuthLoginHandler(c *fiber.Ctx) error {
+func (uh *UserHandlersImpl) OAuthLogin(c *fiber.Ctx) error {
 	googleOAuth := config.OAuthConfig();
 	var state string = helper.GenerateRandState();
 	authUrl := googleOAuth.AuthCodeURL(state, oauth2.AccessTypeOffline, oauth2.ApprovalForce);
@@ -39,7 +54,7 @@ func OAuthLoginHandler(c *fiber.Ctx) error {
 	return c.Redirect(authUrl);
 }
 
-func RedirectHandler(c *fiber.Ctx) error {
+func (uh *UserHandlersImpl) OAuthRedirect(c *fiber.Ctx) error {
 	state := c.Query("state");
 	code := c.Query("code");
 	expectedState := c.Cookies("state");
@@ -54,7 +69,6 @@ func RedirectHandler(c *fiber.Ctx) error {
 	}
 
 	token, err := googleOAuth.Exchange(context.Background(), code);
-
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).SendString("Failed to exchange the code");
 	}
@@ -62,14 +76,11 @@ func RedirectHandler(c *fiber.Ctx) error {
 	client := googleOAuth.Client(context.Background(), token);
 
 	resp, err := client.Get("https://www.googleapis.com/oauth2/v2/userinfo");
-
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).SendString("failed to get response of user info");
 	}
 
-	defer func () {
-		resp.Body.Close();
-	}()
+	defer resp.Body.Close()
 
 	c.Cookie(&fiber.Cookie{
 		Name:     "state",
@@ -80,20 +91,15 @@ func RedirectHandler(c *fiber.Ctx) error {
 		
 	var userInfo dto.GoogleProfile;
 
-	err = json.NewDecoder(resp.Body).Decode(&userInfo);
-
-	if err != nil {
+	if err := json.NewDecoder(resp.Body).Decode(&userInfo); err != nil {
 		return c.Status(fiber.StatusBadRequest).SendString("Failed to decode JSON");
 	}
+
 	
-	var res dto.Response = services.SaveUser(userInfo, token);
-	
-	log.Info(res)
+	var res dto.Response = uh.UserService.SaveUser(userInfo, token);
 
 	if res.Status == fiber.StatusOK {
 		profile, ok := res.Data.(dto.GoogleProfile);
-
-
 		if !ok {
 			panic("Data is not profileToken type");
 		}
@@ -116,32 +122,9 @@ func RedirectHandler(c *fiber.Ctx) error {
 	
 }
 
-func GetUserInfo(c *fiber.Ctx) error {
+func (uh *UserHandlersImpl) UserInfo(c *fiber.Ctx) error {
 	var jwtCookies string = string(c.Request().Header.Cookie("jwt"));
 
-	var response dto.Response = services.GetUser(jwtCookies);
-	return c.JSON(response.JSON());
-}
-
-func AddVideo(c *fiber.Ctx) error {
-	var jwtCookies string = string(c.Request().Header.Cookie("jwt"));
-	link := c.Query("vid");
-	scheduler := c.Query("sc");
-	strategy := c.Query("st");
-
-	response := services.UploadVideo(jwtCookies, dto.UploadVideos{
-		Link: link,
-		Scheduler: scheduler,
-		Strategy: strategy,
-	})
-
-	return c.JSON(response.JSON());
-}
-
-func RequestCommentTheadsHandler(c *fiber.Ctx) error {
-	var jwtCookies string = string(c.Request().Header.Cookie("jwt"));
-	var link string = c.Query("vid");
-	var response dto.Response = services.GetComments(jwtCookies, link)
-
+	var response dto.Response = uh.UserService.GetUser(jwtCookies)
 	return c.JSON(response.JSON());
 }
