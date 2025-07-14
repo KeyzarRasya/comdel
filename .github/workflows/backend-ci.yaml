@@ -3,12 +3,12 @@ name: backend-ci
 on:
   push:
     paths:
-      comdel-backend/
+      comdel-backend/**
     branches:
       - main
   pull_request:
     paths:
-      comdel-backend/
+      comdel-backend/**
     branches:
       - main
   workflow_dispatch:
@@ -27,7 +27,10 @@ jobs:
           go-version: 1.24.2
 
       - name: build project
-        run: go get .
+        run: |
+          cd comdel-backend
+          go mod tidy
+          go build ./...
   
   test:
     name: test-dependency
@@ -44,4 +47,4 @@ jobs:
       - name: test code
         run: |
           cd comdel-backend/internal/services
-          go test -v ./...
+          go test -v
