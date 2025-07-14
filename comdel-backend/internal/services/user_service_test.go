@@ -82,7 +82,7 @@ func TestGetUser_VideoFetchFailed(t *testing.T) {
 		},
 	}
 
-	videoRepo := MockVideoRepository{
+	videoRepo := mock.MockVideoRepository{
 		GetByIdFunc: func(videoId string) (*model.Videos, error) {
 			return nil, errors.New("video fetch failed")
 		},
@@ -115,7 +115,7 @@ func TestGetUser_Success(t *testing.T) {
 		},
 	}
 
-	videoRepo := MockVideoRepository{
+	videoRepo := mock.MockVideoRepository{
 		GetByIdFunc: func(videoId string) (*model.Videos, error) {
 			return &model.Videos{
 				Id:    videoId,

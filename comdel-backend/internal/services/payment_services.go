@@ -5,10 +5,11 @@ import (
 	"os"
 	"time"
 
-	"github.com/KeyzarRasya/comdel-server/internal/config"
-	"github.com/KeyzarRasya/comdel-server/internal/dto"
-	"github.com/KeyzarRasya/comdel-server/internal/helper"
-	"github.com/KeyzarRasya/comdel-server/internal/repository"
+	"comdel-backend/internal/config"
+	"comdel-backend/internal/dto"
+	"comdel-backend/internal/helper"
+	"comdel-backend/internal/repository"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/log"
 	"github.com/google/uuid"
@@ -26,6 +27,7 @@ type PaymentServiceImpl struct {
 	UserRepository repository.UserRepository;
 	TransactionRepository repository.TransactionRepository;
 	SubscriptionRepository repository.SubscriptionRepository;
+	DBLoader config.DBLoader
 }
 
 /*
@@ -50,7 +52,14 @@ func (ps *PaymentServiceImpl) Pay(cookie string, plan dto.PremiumPlan) dto.Respo
 	var client snap.Client;
 	var transaction dto.Transaction;
 
-	conn := config.LoadDatabase();
+	conn, err := ps.DBLoader.Load()
+	if err != nil {
+		return dto.Response{
+			Status: fiber.StatusBadRequest,
+			Message: "Failed to load database",
+			Data: nil,
+		}
+	}
 
 	userId, err := helper.VerifyAndGet(cookie);
 	if err != nil {
@@ -130,7 +139,14 @@ func (ps *PaymentServiceImpl) Pay(cookie string, plan dto.PremiumPlan) dto.Respo
 }
 
 func (ps *PaymentServiceImpl) Finish(cookie string, transaction dto.TransactionStatus) dto.Response {
-	conn := config.LoadDatabase()
+	conn, err :=ps.DBLoader.Load()
+	if err != nil {
+		return dto.Response{
+			Status: fiber.StatusBadRequest,
+			Message: "failed to loa database",
+			Data: err.Error(),
+		}
+	}
 	
 	userId, err := helper.VerifyAndGet(cookie)
 	if err != nil {
@@ -210,7 +226,15 @@ func (ps *PaymentServiceImpl) Finish(cookie string, transaction dto.TransactionS
 }
 
 func (ps *PaymentServiceImpl) Unsubscribe(cookie string) dto.Response {
-	conn := config.LoadDatabase()
+	conn, err := ps.DBLoader.Load()
+
+	if err != nil {
+		return dto.Response{
+			Status: fiber.StatusBadRequest,
+			Message: "Failed to load database",
+			Data: err.Error(),
+		}
+	}
 
 	userId, err := helper.VerifyAndGet(cookie);
 	if err != nil {
