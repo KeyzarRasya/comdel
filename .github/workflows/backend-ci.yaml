@@ -2,9 +2,13 @@ name: backend-ci
 
 on:
   push:
+    paths:
+      comdel-backend/
     branches:
       - main
   pull_request:
+    paths:
+      comdel-backend/
     branches:
       - main
 
