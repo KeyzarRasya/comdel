@@ -4,9 +4,10 @@ import (
 	"context"
 	"time"
 
-	"github.com/KeyzarRasya/comdel-server/internal/config"
-	"github.com/KeyzarRasya/comdel-server/internal/dto"
-	"github.com/KeyzarRasya/comdel-server/internal/helper"
+	"comdel-backend/internal/config"
+	"comdel-backend/internal/dto"
+	"comdel-backend/internal/helper"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/log"
 	"golang.org/x/oauth2"
