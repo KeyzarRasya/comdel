@@ -5,10 +5,11 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/KeyzarRasya/comdel-server/internal/config"
-	"github.com/KeyzarRasya/comdel-server/internal/dto"
-	"github.com/KeyzarRasya/comdel-server/internal/helper"
-	"github.com/KeyzarRasya/comdel-server/internal/services"
+	"comdel-backend/internal/config"
+	"comdel-backend/internal/dto"
+	"comdel-backend/internal/helper"
+	"comdel-backend/internal/services"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/log"
 	"golang.org/x/oauth2"

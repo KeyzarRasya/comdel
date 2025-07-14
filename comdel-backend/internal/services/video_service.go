@@ -6,21 +6,19 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/KeyzarRasya/comdel-server/internal/config"
-	"github.com/KeyzarRasya/comdel-server/internal/dto"
-	"github.com/KeyzarRasya/comdel-server/internal/helper"
-	"github.com/KeyzarRasya/comdel-server/internal/model"
-	"github.com/KeyzarRasya/comdel-server/internal/repository"
+	"comdel-backend/internal/config"
+	"comdel-backend/internal/dto"
+	"comdel-backend/internal/helper"
+	"comdel-backend/internal/model"
+	"comdel-backend/internal/repository"
+
 	"github.com/gofiber/fiber/v2"
-	"google.golang.org/api/option"
-	"google.golang.org/api/youtube/v3"
 )
 
 type VideoService interface {
 	UploadVideo(cookie string, upload dto.UploadVideos) 	dto.Response;
 	IsCanUpload(link string, cookie string) 				dto.Response;
 	processURL(link string) 								(string, error);
-	fetchVideo(youtube *youtube.Service, videoId string) 	(*youtube.Video, error)
 	Info(videoId string, cookies string)					dto.Response;
 }
 
@@ -28,7 +26,11 @@ type VideoServiceImpl struct {
 	UserRepository 		repository.UserRepository;
 	VideoRepository 	repository.VideoRepository;
 	TokenRepository 	repository.TokenRepository;
-	CommentRepository 	repository.CommentRepository;
+	CommentRepository 	repository.CommentRepository
+	CommentService 		CommentService
+	YtService 			YoutubeService
+	DBLoader 			config.DBLoader
+	Authentication		Authenticator
 }
 
 /*
@@ -41,18 +43,43 @@ func NewVideoService(
 	userRepository repository.UserRepository,
 	videoRepository repository.VideoRepository,
 	tokenRepository repository.TokenRepository,
+	commentService CommentService,
 	commentRepository repository.CommentRepository,
+	ytService YoutubeService,
+	dbLoader config.DBLoader,
+	authentication Authenticator,
 ) VideoService {
 	return &VideoServiceImpl{
 		UserRepository: userRepository,
 		VideoRepository: videoRepository,
 		TokenRepository: tokenRepository,
+		CommentService: commentService,
 		CommentRepository: commentRepository,
+		YtService: ytService,
+		DBLoader: dbLoader,
+		Authentication: authentication,
 	}
 }
 
 
 func (vs *VideoServiceImpl) UploadVideo(cookie string, upload dto.UploadVideos) dto.Response {
+	conn, err := vs.DBLoader.Load()
+	if err != nil {
+		return dto.Response{
+			Status: fiber.StatusBadRequest,
+			Message: "Failed to load database",
+			Data: err.Error(),
+		}
+	}
+	
+	userId, err := vs.Authentication.GetUserIdByCookie(cookie)
+	if err != nil {
+		return dto.Response{
+			Status: fiber.StatusBadRequest,
+			Message: "invalid authentication token",
+			Data: nil,
+		}
+	}
 
 	if upload.Link == "" || upload.Scheduler == "" || upload.Strategy == "" {
 		return dto.Response{
@@ -63,8 +90,6 @@ func (vs *VideoServiceImpl) UploadVideo(cookie string, upload dto.UploadVideos) 
 	}
 
 	/* Variable Declaration */
-	conn := config.LoadDatabase();
-	oauthConfig := config.OAuthConfig();
 	var channelId string;
 	var video model.Videos;
 	
@@ -86,41 +111,27 @@ func (vs *VideoServiceImpl) UploadVideo(cookie string, upload dto.UploadVideos) 
 		=== START ===
 		Validate user cookies
 	*/
-	userId, err := helper.VerifyAndGet(cookie);
-
-	if err != nil {
-		return dto.Response{
-			Status: fiber.StatusBadRequest,
-			Message: "invalid authentication token",
-			Data: nil,
-		}
-	}
 
 	channelId, err = vs.UserRepository.GetYoutubeIdById(userId)
-
 	if err != nil {
 		return dto.Response{
 			Status: fiber.StatusBadRequest,
-			Message: err.Error(),
-			Data: nil,
+			Message: "failed to get youtube id",
+			Data: err.Error(),
 		}
 	}
 	/* === END ===*/
 
 	token, err := vs.TokenRepository.GetByOwnerId(userId);
-
-	var tokenSource = oauthConfig.TokenSource(context.Background(), token);
-	youtubeService, err := youtube.NewService(context.Background(), option.WithTokenSource(tokenSource));
-
 	if err != nil {
 		return dto.Response{
 			Status: fiber.StatusBadRequest,
-			Message: "Failed to authenticate to youtube",
-			Data: err,
+			Message: "Failed to get token",
+			Data: err.Error(),
 		}
 	}
 
-	vidItem, err := vs.fetchVideo(youtubeService, videoId)
+	vidItem, err := vs.YtService.Video(token, videoId)
 	if err != nil {
 		return dto.Response{
 			Status: fiber.StatusBadRequest,
@@ -174,7 +185,7 @@ func (vs *VideoServiceImpl) UploadVideo(cookie string, upload dto.UploadVideos) 
 		}
 	}
 	
-	var initialDetection dto.Response = FetchAndDeleteComment(cookie, videoId)
+	var initialDetection dto.Response = vs.CommentService.FetchAndDeleteComment(cookie, videoId)
 	
 	if initialDetection.Status == fiber.StatusBadRequest {
 		return initialDetection;
@@ -190,8 +201,6 @@ func (vs *VideoServiceImpl) UploadVideo(cookie string, upload dto.UploadVideos) 
 }
 
 func (vs *VideoServiceImpl) IsCanUpload(link string, cookie string) dto.Response {
-	oauthConfig := config.OAuthConfig();
-
 	var channelId string;
 
 	userId, err := helper.VerifyAndGet(cookie);
@@ -240,18 +249,15 @@ func (vs *VideoServiceImpl) IsCanUpload(link string, cookie string) dto.Response
 	}
 
 	token, err := vs.TokenRepository.GetByOwnerId(userId);
-	var tokenSource = oauthConfig.TokenSource(context.Background(), token);
-	youtubeService, err := youtube.NewService(context.Background(), option.WithTokenSource(tokenSource));
-
 	if err != nil {
 		return dto.Response{
 			Status: fiber.StatusBadRequest,
-			Message: "Failed to create youtube service",
-			Data: nil,
+			Message: "Failed to get token",
+			Data: err.Error(),
 		}
 	}
 
-	vidItem, err := vs.fetchVideo(youtubeService, videoId) 
+	vidItem, err := vs.YtService.Video(token, videoId)
 	if err != nil {
 		return dto.Response{
 			Status: fiber.StatusBadRequest,
@@ -293,20 +299,6 @@ func (vs *VideoServiceImpl) processURL(link string) (string, error) {
 	var videoId string = youtubeLink.Query()["v"][0];
 
 	return videoId, nil
-}
-
-func (vs *VideoServiceImpl) fetchVideo(youtube *youtube.Service, videoId string) (*youtube.Video, error) {
-	videoResponse, err := youtube.Videos.List([]string{"snippet"}).Id(videoId).Do();
-
-	if err != nil {
-		return nil, err;
-	}
-
-	if len(videoResponse.Items) == 0 {
-		return nil, errors.New("Invalid video id, no videos were found")
-	}
-
-	return videoResponse.Items[0], nil;
 }
 
 func (vs *VideoServiceImpl) Info(videoId string, cookies string) dto.Response {

@@ -11,5 +11,5 @@ type User struct {
 	Isverified		bool			`json:"isVerified"`
 	Picture			string			`json:"picture"`
 	Videos			[]Videos		`json:"videos"`
-	GId				string			`json:"g_id"`	
+	GId				string			`json:"g_id"`
 }

@@ -3,16 +3,13 @@ package services
 import (
 	"context"
 
-	"github.com/KeyzarRasya/comdel-server/internal/config"
-	"github.com/KeyzarRasya/comdel-server/internal/dto"
-	"github.com/KeyzarRasya/comdel-server/internal/helper"
-	"github.com/KeyzarRasya/comdel-server/internal/model"
-	"github.com/KeyzarRasya/comdel-server/internal/repository"
+	"comdel-backend/internal/config"
+	"comdel-backend/internal/dto"
+	"comdel-backend/internal/model"
+	"comdel-backend/internal/repository"
+
 	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/log"
 	"golang.org/x/oauth2"
-	"google.golang.org/api/option"
-	"google.golang.org/api/youtube/v3"
 )
 
 type UserService interface{
@@ -24,6 +21,10 @@ type UserServiceImpl struct {
 	UserRepository repository.UserRepository;
 	TokenRepository repository.TokenRepository;
 	VideoRepository repository.VideoRepository;
+	YtService YoutubeService
+	OAuth config.OAuthProvider
+	DBLoader config.DBLoader
+	Authenticator Authenticator
 }
 
 /*
@@ -36,17 +37,33 @@ func NewUserService(
 	userRepository 		repository.UserRepository,
 	tokenRepository 	repository.TokenRepository,
 	videoRepository 	repository.VideoRepository,
+	authenticator 		Authenticator,
+	dbLoader 			config.DBLoader,
+	oAuth 				config.OAuthProvider,
+	ytService			YoutubeService,
 ) UserService {
 	return &UserServiceImpl{
 		UserRepository: userRepository, 
 		TokenRepository: tokenRepository, 
-		VideoRepository: videoRepository}
+		VideoRepository: videoRepository,
+		Authenticator: authenticator,
+		DBLoader: dbLoader,
+		OAuth: oAuth,
+		YtService: ytService,
+	}
 }
 
 
 func (us *UserServiceImpl) SaveUser(user dto.GoogleProfile, oauthToken *oauth2.Token) dto.Response {
-	conn := config.LoadDatabase();		/*Load Database*/
-	oauthConfig := config.OAuthConfig()	/*Load OAuth Config*/
+	conn, err := us.DBLoader.Load()
+
+	if err != nil {
+		return dto.Response{
+			Status: fiber.StatusBadRequest,
+			Message: "Failed to load database",
+			Data: err.Error(),
+		}
+	}
 
 	var googleId string;		/*value to store g_id (it is available or not)*/
 	var userId string;
@@ -63,29 +80,17 @@ func (us *UserServiceImpl) SaveUser(user dto.GoogleProfile, oauthToken *oauth2.T
 
 	defer tx.Rollback(context.Background())
 
-	tokenSource := oauthConfig.TokenSource(context.Background(), oauthToken);
-	youtubeService, err := youtube.NewService(context.Background(), option.WithTokenSource(tokenSource));
-
+	channel, err := us.YtService.ChannelInfo(oauthToken)
 	if err != nil {
 		return dto.Response{
 			Status: fiber.StatusBadRequest,
-			Message: "Failed to create youtube service",
-			Data: err,
+			Message: "Failed to get channel info",
+			Data: err.Error(),
 		}
 	}
 
-	channel, err := youtubeService.Channels.List([]string{"id", "snippet"}).Mine(true).Do();
 
-	if err != nil {
-		return dto.Response{
-			Status: fiber.StatusBadRequest,
-			Message: "Failed to get youtube channel information",
-			Data: err,
-		}
-	}
-
-	_, err = us.UserRepository.IsGIDAvail(tx, user.GId, &googleId)
-	
+	isAvail, err := us.UserRepository.IsGIDAvail(tx, user.GId, &googleId)
 	if err != nil {
 		return dto.Response{
 			Status:  fiber.StatusBadRequest,
@@ -94,12 +99,10 @@ func (us *UserServiceImpl) SaveUser(user dto.GoogleProfile, oauthToken *oauth2.T
 		}
 	}
 
-	if googleId == "" {
-		log.Info("Creating a new account");
-
+	if !isAvail {
 		modelUser := user.Parse()
-		modelUser.YoutubeId = channel.Items[0].Id;
-		modelUser.TitleSnippet = channel.Items[0].Snippet.Title;
+		modelUser.YoutubeId = channel.Id;
+		modelUser.TitleSnippet = channel.Snippet.Title;
 
 		if  err := us.UserRepository.SaveReturningId(tx, modelUser, &userId); err != nil {
 			return dto.Response{
@@ -127,7 +130,7 @@ func (us *UserServiceImpl) SaveUser(user dto.GoogleProfile, oauthToken *oauth2.T
 		}
 	}
 
-	jwt, err := helper.GenerateToken(userId);
+	jwt, err := us.Authenticator.GenerateToken(userId);
 	if err != nil{
 		return dto.Response{
 			Status: fiber.StatusBadRequest,
@@ -168,9 +171,8 @@ func (us *UserServiceImpl) GetUser(cookies string) dto.Response {
 		}
 	}
 
-	userId, err := helper.VerifyAndGet(cookies)
+	userId, err := us.Authenticator.GetUserIdByCookie(cookies)
 	if err != nil {
-		log.Info("Error : ", err);
 		return dto.Response{
 			Status: fiber.StatusBadRequest,
 			Message: "Cannot verify JWT Token",

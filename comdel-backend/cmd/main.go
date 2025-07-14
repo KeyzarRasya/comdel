@@ -1,16 +1,20 @@
 package main
 
 import (
-	"github.com/KeyzarRasya/comdel-server/internal/config"
-	"github.com/KeyzarRasya/comdel-server/internal/handlers"
-	"github.com/KeyzarRasya/comdel-server/internal/middleware"
-	"github.com/KeyzarRasya/comdel-server/internal/repository"
-	"github.com/KeyzarRasya/comdel-server/internal/routes"
-	"github.com/KeyzarRasya/comdel-server/internal/services"
+	"comdel-backend/internal/config"
+	"comdel-backend/internal/handlers"
+	"comdel-backend/internal/middleware"
+	"comdel-backend/internal/repository"
+	"comdel-backend/internal/routes"
+	"comdel-backend/internal/services"
+	"os"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/log"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/joho/godotenv"
+	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/google"
 )
 
 // c := cron.New()
@@ -34,7 +38,6 @@ import (
 
 func main() {
 	err := godotenv.Load("../.env");
-	conn := config.LoadDatabase()
 
 	if err != nil {
 		log.Fatal("Failed to load .env files");
@@ -50,26 +53,73 @@ func main() {
 		AllowCredentials: true,
 	}
 
+	dbLoader := config.DBLoaderImpl{}
+	conn, err := dbLoader.Load()
+
+	if err != nil {
+		log.Info("Failed to load database at start")
+		return;
+	}
+
+	/* Google OAuth Config */
+	var scopes []string = []string{
+		"https://www.googleapis.com/auth/userinfo.email",
+		"https://www.googleapis.com/auth/userinfo.profile",
+		"https://www.googleapis.com/auth/youtube.force-ssl",
+	}
+	oauthConfig := oauth2.Config{
+		RedirectURL: 	"http://localhost:8080/auth/google/redirect",
+		ClientID: 		os.Getenv("GOOGLE_CLIENT_ID"),
+		ClientSecret: 	os.Getenv("GOOGLE_CLIENT_SECRET"),
+		Scopes: 		scopes,
+		Endpoint: 		google.Endpoint,
+		
+	}
+
+	/* Google Oauth Provider */
+	googleOauth := config.NewGoogleOAuth(&oauthConfig)
+
 	/*
 		Repository Dependency
 	*/
+	transactionRepository := repository.NewTransactionRepository(conn)
 	userRepository := repository.NewUserRepository(conn)
 	videoRepository := repository.NewVideoRepository(conn)
-	transactionRepository := repository.NewTransactionRepository(conn)
 	tokenRepository := repository.NewTokenRepository(conn)
 	subscriptionRepository := repository.NewSubscriptionRepository(conn)
 	commentRepository := repository.NewCommentRepository(conn)
 
+	/* Service Dependency */
+	youtubeService := services.NewYoutubeService(googleOauth)
 
+	commentService := services.NewCommentService(
+		userRepository,
+		tokenRepository,
+		&youtubeService,
+		commentRepository,
+		videoRepository,
+		googleOauth,
+		&dbLoader,
+	)
+
+	/* Dependency Config*/
+	auth := services.Authentication{}
+	
 	/*
-		===START===
-		Service Dependency
+	===START===
+	Service Dependency
 	*/
 	// 1. User Service Dependency Injection
+	ytService := services.YoutubeServiceImpl{OAuthProvider: googleOauth}
 	userService := services.NewUserService(
 		userRepository,
 		tokenRepository,
 		videoRepository,
+		&auth,
+		&dbLoader,
+		googleOauth, 
+		&ytService,
+
 	)
 
 	//2. Video Service Dependency Injection
@@ -77,7 +127,11 @@ func main() {
 		userRepository,
 		videoRepository,
 		tokenRepository,
+		&commentService,
 		commentRepository,
+		&ytService,
+		&dbLoader,
+		&auth,
 	)
 
 	// 3. Payment Service Dependency Injection
@@ -90,8 +144,6 @@ func main() {
 		Service Dependency
 		===END===
 	*/
-
-
 
 	/* Handler Dependency */
 	userHandlers := handlers.NewUserHandlers(userService)
