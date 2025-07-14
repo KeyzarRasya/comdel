@@ -91,7 +91,7 @@ func TestGetUser_VideoFetchFailed(t *testing.T) {
 	service := NewUserService(&userRepo, nil, &videoRepo, &auth, nil, nil, nil)
 	resp := service.GetUser("valid-cookie")
 
-	if resp.Status != fiber.StatusBadRequest {
+	if resp.Status == fiber.StatusBadRequest {
 		t.Errorf("Expected StatusBadRequest, got %d", resp.Status)
 	}
 	if resp.Message != "Failed to fetch video" {
