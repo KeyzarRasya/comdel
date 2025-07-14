@@ -4,8 +4,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/KeyzarRasya/comdel-server/internal/dto"
-	"github.com/KeyzarRasya/comdel-server/internal/services"
+	"comdel-backend/internal/dto"
+	"comdel-backend/internal/services"
+
 	"github.com/gofiber/fiber/v2"
 )
 
