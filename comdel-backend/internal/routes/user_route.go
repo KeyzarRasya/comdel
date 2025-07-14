@@ -1,8 +1,9 @@
 package routes
 
 import (
-	"github.com/KeyzarRasya/comdel-server/internal/handlers"
-	"github.com/KeyzarRasya/comdel-server/internal/middleware"
+	"comdel-backend/internal/handlers"
+	"comdel-backend/internal/middleware"
+
 	"github.com/gofiber/fiber/v2"
 )
 

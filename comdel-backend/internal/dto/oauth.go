@@ -1,6 +1,6 @@
 package dto
 
-import "github.com/KeyzarRasya/comdel-server/internal/model"
+import "comdel-backend/internal/model"
 
 
 type GoogleProfile struct {
