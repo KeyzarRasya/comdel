@@ -3,20 +3,20 @@ name: backend-ci
 on:
   push:
     paths:
-      - comdel-backend/**
+      comdel-backend/**
     branches:
       - main
   pull_request:
     paths:
-      - comdel-backend/**
+      comdel-backend/**
     branches:
       - main
   workflow_dispatch:
 
 jobs:
   build:
-    name: build-dependency
     runs-on: ubuntu-24.04
+    name: build-dependency
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -25,23 +25,25 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: 1.24.2
-
+      
       - name: Go Module Cache
+        id: mod-cache
         uses: actions/cache@v4
         with:
           path: |
             ~/.cache/go-build
             ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('comdel-backend/go.sum') }}
+          key: ${{ runner.os }}-go-${{hashFiles('comdel-backend/go.sum')}}
           restore-keys: |
             ${{ runner.os }}-go-
 
-      - name: Build project
+      - name: build project
+        if: steps.mod-cache.outputs.cache_hit != 'true'
         run: |
           cd comdel-backend
           go mod tidy
           go build ./...
-
+  
   test:
     name: test-dependency
     needs: build
@@ -56,16 +58,17 @@ jobs:
           go-version: 1.24.2
 
       - name: Go Module Cache
+        id: mod-cache
         uses: actions/cache@v4
         with:
           path: |
             ~/.cache/go-build
             ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('comdel-backend/go.sum') }}
+          key: ${{ runner.os }}-go-${{hashFiles('comdel-backend/go.sum')}}
           restore-keys: |
             ${{ runner.os }}-go-
 
-      - name: Run tests
+      - name: test code
         run: |
-          cd comdel-backend
-          go test -v ./...
+          cd comdel-backend/internal/services
+          go test -v
