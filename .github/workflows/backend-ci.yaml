@@ -34,7 +34,7 @@ jobs:
             ~/.cache/go-build
             -~/go/pkg/mod
           key: ${{ runner.os }}-go-${{hashFiles('comdel-backend/go.sum')}}
-          restore-key: |
+          restore-keys: |
             ${{ runner.os }}-go-
 
       - name: build project
@@ -65,9 +65,9 @@ jobs:
             ~/.cache/go-build
             -~/go/pkg/mod
           key: ${{ runner.os }}-go-${{hashFiles('comdel-backend/go.sum')}}
-          restore-key: |
+          restore-keys: |
             ${{ runner.os }}-go-
-              
+
       - name: test code
         run: |
           cd comdel-backend/internal/services
