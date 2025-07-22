@@ -98,7 +98,7 @@ func (uh *UserHandlersImpl) OAuthRedirect(c *fiber.Ctx) error {
 
 	
 	var res dto.Response = uh.UserService.SaveUser(userInfo, token);
-
+	log.Info(res)
 	if res.Status == fiber.StatusOK {
 		profile, ok := res.Data.(dto.GoogleProfile);
 		if !ok {

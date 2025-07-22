@@ -203,7 +203,7 @@ func (vs *VideoServiceImpl) UploadVideo(cookie string, upload dto.UploadVideos) 
 func (vs *VideoServiceImpl) IsCanUpload(link string, cookie string) dto.Response {
 	var channelId string;
 
-	userId, err := helper.VerifyAndGet(cookie);
+	userId, err := vs.Authentication.GetUserIdByCookie(cookie);
 	if err != nil {
 		return dto.Response{
 			Status: fiber.StatusBadRequest,
@@ -248,6 +248,7 @@ func (vs *VideoServiceImpl) IsCanUpload(link string, cookie string) dto.Response
 		}
 	}
 
+	
 	token, err := vs.TokenRepository.GetByOwnerId(userId);
 	if err != nil {
 		return dto.Response{
@@ -256,6 +257,7 @@ func (vs *VideoServiceImpl) IsCanUpload(link string, cookie string) dto.Response
 			Data: err.Error(),
 		}
 	}
+	
 
 	vidItem, err := vs.YtService.Video(token, videoId)
 	if err != nil {
@@ -274,10 +276,15 @@ func (vs *VideoServiceImpl) IsCanUpload(link string, cookie string) dto.Response
 		}
 	}
 
+	video := dto.Videos{
+		Thumbnail: vidItem.Snippet.Thumbnails.Maxres.Url,
+		Title: vidItem.Snippet.Title,
+	}
+
 	return dto.Response{
 		Status: fiber.StatusOK,
 		Message: "Video terverifikasi milik anda",
-		Data: nil,
+		Data: video,
 	}
 
 }

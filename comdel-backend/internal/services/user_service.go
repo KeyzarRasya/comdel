@@ -9,6 +9,7 @@ import (
 	"comdel-backend/internal/repository"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/log"
 	"golang.org/x/oauth2"
 )
 
@@ -99,18 +100,23 @@ func (us *UserServiceImpl) SaveUser(user dto.GoogleProfile, oauthToken *oauth2.T
 		}
 	}
 
+	log.Info(googleId)
+
 	if !isAvail {
 		modelUser := user.Parse()
 		modelUser.YoutubeId = channel.Id;
 		modelUser.TitleSnippet = channel.Snippet.Title;
 
-		if  err := us.UserRepository.SaveReturningId(tx, modelUser, &userId); err != nil {
+		userId, err = us.UserRepository.SaveReturningId(tx, modelUser)
+		if err != nil {
 			return dto.Response{
 				Status: fiber.StatusBadRequest,
 				Message: "failed to insert a profile",
 				Data: err.Error(),
 			}
 		}
+
+		log.Info("UserId", userId)
 
 		if err := us.TokenRepository.Save(tx, oauthToken, userId); err != nil {
 			return dto.Response{
@@ -119,16 +125,19 @@ func (us *UserServiceImpl) SaveUser(user dto.GoogleProfile, oauthToken *oauth2.T
 				Data: err,
 			}	
 		}
-	}
-
-	userId, err = us.UserRepository.GetIDByGID(tx, googleId);
-	if err != nil {
-		return dto.Response{
-			Status: fiber.StatusBadRequest,
-			Message:"Failed to get id by",
-			Data: err.Error(),
+	} else {
+		userId, err = us.UserRepository.GetIDByGID(tx, googleId);
+		if err != nil {
+			return dto.Response{
+				Status: fiber.StatusBadRequest,
+				Message:"Failed to get id by",
+				Data: err.Error(),
+			}
 		}
 	}
+
+
+	
 
 	jwt, err := us.Authenticator.GenerateToken(userId);
 	if err != nil{

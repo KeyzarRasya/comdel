@@ -262,8 +262,8 @@ func TestSaveUser_SaveFailed(t *testing.T) {
 		IsGIDAvailFunc: func(tx config.DBTx, gid string, googleId *string) (bool, error) {
 			return false, nil
 		},
-		SaveReturningIdFunc: func(tx config.DBTx, user model.User, userId *string) error {
-			return errors.New("Failed to save user")
+		SaveReturningIdFunc: func(tx config.DBTx, user model.User) (string, error) {
+			return "", errors.New("Failed to save user")
 		},
 	}
 
@@ -314,8 +314,8 @@ func TestSaveUser_SaveTokenFailed(t *testing.T) {
 		IsGIDAvailFunc: func(tx config.DBTx, gid string, googleId *string) (bool, error) {
 			return false, nil
 		},
-		SaveReturningIdFunc: func(tx config.DBTx, user model.User, userId *string) error {
-			return nil
+		SaveReturningIdFunc: func(tx config.DBTx, user model.User) (string, error) {
+			return "", nil
 		},
 	}
 
@@ -373,8 +373,8 @@ func TestSaveUser_GetIDFailed(t *testing.T) {
 		IsGIDAvailFunc: func(tx config.DBTx, gid string, googleId *string) (bool, error) {
 			return false, nil
 		},
-		SaveReturningIdFunc: func(tx config.DBTx, user model.User, userId *string) error {
-			return nil
+		SaveReturningIdFunc: func(tx config.DBTx, user model.User) (string, error) {
+			return "", nil
 		},
 		GetIDByGIDFunc: func(tx config.DBTx, googleId string) (string, error) {
 			return "", errors.New("Failed to get id")
@@ -436,8 +436,8 @@ func TestSaveUser_Success(t *testing.T) {
 		IsGIDAvailFunc: func(tx config.DBTx, gid string, googleId *string) (bool, error) {
 			return false, nil
 		},
-		SaveReturningIdFunc: func(tx config.DBTx, user model.User, userId *string) error {
-			return nil
+		SaveReturningIdFunc: func(tx config.DBTx, user model.User) (string, error) {
+			return "", nil
 		},
 		GetIDByGIDFunc: func(tx config.DBTx, googleId string) (string, error) {
 			return "", nil

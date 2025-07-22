@@ -6,8 +6,11 @@ import (
 
 	"comdel-backend/internal/config"
 	"comdel-backend/internal/model"
+	"comdel-backend/internal/status"
 
+	"github.com/gofiber/fiber/v2/log"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type UserRepository interface {
@@ -21,7 +24,7 @@ type UserRepository interface {
 
 	IsGIDAvail(tx config.DBTx, gid string, googleId *string)				(bool, error);
 	// Save(user model.User)											error;
-	SaveReturningId(tx config.DBTx, user model.User, userId *string)		error;
+	SaveReturningId(tx config.DBTx, user model.User)		(string, error);
 	DeactivateSubscription(tx config.DBTx, userId string)				error;
 
 	UpdateVideos(tx config.DBTx, videoId string, userId string, cooldown time.Time)	error
@@ -41,14 +44,15 @@ func NewUserRepository(pgxConn config.DBConn) UserRepository {
 	return &UserRepositoryImpl{conn: pgxConn}
 }
 
-func (ur *UserRepositoryImpl) SaveReturningId(tx config.DBTx, user model.User, userId *string) error {
+func (ur *UserRepositoryImpl) SaveReturningId(tx config.DBTx, user model.User) (string, error) {
+	var userId string
 	err := tx.QueryRow(
 		context.Background(), 
 		"INSERT INTO user_info (name, given_name, email, isverified, picture, g_id, youtube_id, title_snippet) VALUES($1, $2, $3, $4, $5, $6, $7, $8) RETURNING user_id",
 		user.Name, user.GivenName, user.Email, user.VerifiedEmail, user.Picture, user.GId, user.YoutubeId, user.TitleSnippet,
 	).Scan(&userId)
 
-	return err;
+	return userId, err;
 }
 
 func (ur *UserRepositoryImpl) GetByIdWithVideo(id string) (*model.User, []string, error) {
@@ -123,14 +127,15 @@ func (ur *UserRepositoryImpl) IsGIDAvail(tx config.DBTx, gid string, googleId *s
 	).Scan(googleId)
 
 	if err == pgx.ErrNoRows {
-		return true, nil
+		log.Info("True")
+		return false, nil
 	}
 
 	if err != nil {
 		return false, err;
 	}
 
-	return false, nil
+	return true, nil
 }
 
 func (ur *UserRepositoryImpl) IsCooldown(userId string) (bool, error) {
@@ -153,18 +158,27 @@ func (ur *UserRepositoryImpl) IsCooldown(userId string) (bool, error) {
 }
 
 func (ur *UserRepositoryImpl) GetSubsIdById(userId string) (string, error) {
-	var subsId string;
+	var subsId pgtype.Text
+
 	err := ur.conn.QueryRow(
 		context.Background(),
-		"SELECT subs_id from user_info WHERE user_id=$1",
+		"SELECT subs_id FROM user_info WHERE user_id=$1",
 		userId,
 	).Scan(&subsId)
 
-	if err != nil {
-		return "", err;
+	if err == pgx.ErrNoRows {
+		return "", nil 
 	}
 
-	return subsId, nil
+	if err != nil {
+		return "", err
+	}
+
+	if !subsId.Valid {
+		return "", status.ErrNotSubscribed
+	}
+
+	return subsId.String, nil
 }
 
 func (ur *UserRepositoryImpl) UpdateVideos(tx config.DBTx, videoId string, userId string, cooldown time.Time) error {

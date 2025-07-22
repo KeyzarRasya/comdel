@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"errors"
 	"os"
 	"time"
 
@@ -9,6 +10,7 @@ import (
 	"comdel-backend/internal/dto"
 	"comdel-backend/internal/helper"
 	"comdel-backend/internal/repository"
+	"comdel-backend/internal/status"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/log"
@@ -40,11 +42,13 @@ func NewPaymentService(
 	userRepository repository.UserRepository,
 	transactionRepository repository.TransactionRepository,
 	subscriptionRepository repository.SubscriptionRepository,
+	dbLoader config.DBLoader,
 ) PaymentService {
 	return &PaymentServiceImpl{
 		UserRepository: userRepository,
 		TransactionRepository: transactionRepository,
 		SubscriptionRepository: subscriptionRepository,
+		DBLoader: dbLoader,
 	}
 }
 
@@ -246,6 +250,13 @@ func (ps *PaymentServiceImpl) Unsubscribe(cookie string) dto.Response {
 	}
 
 	subsId, err := ps.UserRepository.GetSubsIdById(userId);
+	if errors.Is(err, status.ErrNotSubscribed) {
+		return dto.Response{
+			Status: fiber.StatusOK,
+			Message: "this user hasnt subscribe yet",
+			Data: nil,
+		}
+	}
 
 	if err != nil {
 		return dto.Response{
@@ -254,6 +265,7 @@ func (ps *PaymentServiceImpl) Unsubscribe(cookie string) dto.Response {
 			Data: err.Error(),
 		}
 	}
+
 
 	expiryTime, err := ps.SubscriptionRepository.GetExpiryTimeBySubsId(subsId)
 	if err != nil {

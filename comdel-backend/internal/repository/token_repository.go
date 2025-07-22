@@ -31,7 +31,7 @@ func (tr *TokenRepositoryImpl) Save(tx config.DBTx, token *oauth2.Token, userId 
 }
 
 func (tr *TokenRepositoryImpl) GetByOwnerId(ownerId string) (*oauth2.Token, error) {
-	var token *oauth2.Token;
+	var token oauth2.Token;
 	err := tr.conn.QueryRow(
 		context.Background(),
 		"SELECT access_token, refresh_token, expiry FROM oauth_token WHERE owner_id=$1",
@@ -42,6 +42,6 @@ func (tr *TokenRepositoryImpl) GetByOwnerId(ownerId string) (*oauth2.Token, erro
 		return nil, err;
 	}
 
-	return token, nil
+	return &token, nil
 }
 
