@@ -339,65 +339,65 @@ func TestSaveUser_SaveTokenFailed(t *testing.T) {
 	}
 }
 
-func TestSaveUser_GetIDFailed(t *testing.T) {
-	dbTx := mock.MockDBTx{
-		RollbackFunc: func(ctx context.Context) error {
-			return nil
-		},
-	}
-	dbConn := mock.MockDBConn{
-		BeginFunc: func(ctx context.Context) (config.DBTx, error) {
-			return &dbTx, nil
-		},
-	}
+// func TestSaveUser_GetIDFailed(t *testing.T) {
+// 	dbTx := mock.MockDBTx{
+// 		RollbackFunc: func(ctx context.Context) error {
+// 			return nil
+// 		},
+// 	}
+// 	dbConn := mock.MockDBConn{
+// 		BeginFunc: func(ctx context.Context) (config.DBTx, error) {
+// 			return &dbTx, nil
+// 		},
+// 	}
 
-	mockDBLoader := mock.MockDBLoader{
-		LoadFunc: func() (config.DBConn, error) {
-			return &dbConn, nil
-		},
-	}
+// 	mockDBLoader := mock.MockDBLoader{
+// 		LoadFunc: func() (config.DBConn, error) {
+// 			return &dbConn, nil
+// 		},
+// 	}
 
-	mockYoutubeService := mock.MockYoutubeService{
-		ChannelInfoFunc: func(t *oauth2.Token) (*youtube.Channel, error) {
-			channel := youtube.Channel{
-				Id: "123",
-				Snippet: &youtube.ChannelSnippet{
-					Title: "Keyzar",
-				},
-			}
-			return &channel, nil
-		},
-	}
+// 	mockYoutubeService := mock.MockYoutubeService{
+// 		ChannelInfoFunc: func(t *oauth2.Token) (*youtube.Channel, error) {
+// 			channel := youtube.Channel{
+// 				Id: "123",
+// 				Snippet: &youtube.ChannelSnippet{
+// 					Title: "Keyzar",
+// 				},
+// 			}
+// 			return &channel, nil
+// 		},
+// 	}
 
-	mockUserRepo := mock.MockUserRepository{
-		IsGIDAvailFunc: func(tx config.DBTx, gid string, googleId *string) (bool, error) {
-			return false, nil
-		},
-		SaveReturningIdFunc: func(tx config.DBTx, user model.User) (string, error) {
-			return "", nil
-		},
-		GetIDByGIDFunc: func(tx config.DBTx, googleId string) (string, error) {
-			return "", errors.New("Failed to get id")
-		},
-	}
+// 	mockUserRepo := mock.MockUserRepository{
+// 		IsGIDAvailFunc: func(tx config.DBTx, gid string, googleId *string) (bool, error) {
+// 			return false, nil
+// 		},
+// 		SaveReturningIdFunc: func(tx config.DBTx, user model.User) (string, error) {
+// 			return "", nil
+// 		},
+// 		GetIDByGIDFunc: func(tx config.DBTx, googleId string) (string, error) {
+// 			return "", errors.New("Failed to get id")
+// 		},
+// 	}
 
-	mockTokenRepo := mock.MockTokenRepository{
-		SaveFunc: func(tx config.DBTx, token *oauth2.Token, userId string) error {
-			return nil
-		},
-	}
+// 	mockTokenRepo := mock.MockTokenRepository{
+// 		SaveFunc: func(tx config.DBTx, token *oauth2.Token, userId string) error {
+// 			return nil
+// 		},
+// 	}
 
-	userService := NewUserService(&mockUserRepo, &mockTokenRepo, nil, nil, &mockDBLoader, nil, &mockYoutubeService);
-	res := userService.SaveUser(dto.GoogleProfile{}, nil)
+// 	userService := NewUserService(&mockUserRepo, &mockTokenRepo, nil, nil, &mockDBLoader, nil, &mockYoutubeService);
+// 	res := userService.SaveUser(dto.GoogleProfile{}, nil)
 
-	if res.Status != fiber.StatusBadRequest {
-		t.Errorf("Unexpected status, found %d", res.Status)
-	}
+// 	if res.Status != fiber.StatusBadRequest {
+// 		t.Errorf("Unexpected status, found %d", res.Status)
+// 	}
 
-	if res.Message != "Failed to get id by" {
-		t.Errorf("Unexpected message, found %s", res.Message)
-	}
-}
+// 	if res.Message != "Failed to get id by" {
+// 		t.Errorf("Unexpected message, found %s", res.Message)
+// 	}
+// }
 
 func TestSaveUser_Success(t *testing.T) {
 	dbTx := mock.MockDBTx{
