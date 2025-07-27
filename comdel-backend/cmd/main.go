@@ -139,6 +139,7 @@ func main() {
 		userRepository,
 		transactionRepository,
 		subscriptionRepository,
+		&dbLoader,
 	)
 	/*
 		Service Dependency
