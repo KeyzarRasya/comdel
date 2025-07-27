@@ -16,7 +16,7 @@ import (
 
 
 func TestGetUser_EmptyCookie(t *testing.T) {
-	service := NewUserService(nil, nil, nil, nil, nil, nil, nil)
+	service := NewUserService(nil, nil, nil, nil, nil, nil, nil, nil)
 	resp := service.GetUser("")
 
 	if resp.Status != fiber.StatusBadRequest {
@@ -34,7 +34,7 @@ func TestGetUser_InvalidCookie(t *testing.T) {
 		},
 	}
 
-	service := NewUserService(nil, nil, nil, &auth, nil, nil, nil)
+	service := NewUserService(nil, nil, nil, &auth, nil, nil, nil, nil)
 	resp := service.GetUser("invalid-cookie")
 
 	if resp.Status != fiber.StatusBadRequest {
@@ -58,7 +58,7 @@ func TestGetUser_UserNotFound(t *testing.T) {
 		},
 	}
 
-	service := NewUserService(&userRepo, nil, nil, &auth, nil, nil, nil)
+	service := NewUserService(&userRepo, nil, nil, &auth, nil, nil, nil, nil)
 	resp := service.GetUser("valid-cookie")
 
 	if resp.Status != fiber.StatusBadRequest {
@@ -88,7 +88,7 @@ func TestGetUser_VideoFetchFailed(t *testing.T) {
 		},
 	}
 
-	service := NewUserService(&userRepo, nil, &videoRepo, &auth, nil, nil, nil)
+	service := NewUserService(&userRepo, nil, &videoRepo, &auth, nil, nil, nil, nil)
 	resp := service.GetUser("valid-cookie")
 
 	if resp.Status != fiber.StatusBadRequest {
@@ -124,7 +124,7 @@ func TestGetUser_Success(t *testing.T) {
 		},
 	}
 
-	service := NewUserService(&userRepo, nil, &videoRepo, &auth, nil, nil, nil)
+	service := NewUserService(&userRepo, nil, &videoRepo, &auth, nil, nil, nil, nil)
 	resp := service.GetUser("valid-cookie")
 
 	if resp.Status != fiber.StatusOK {
@@ -153,7 +153,7 @@ func TestSaveUser_LoadDBFailed(t *testing.T) {
 		},
 	}
 
-	userService := NewUserService(nil, nil, nil, nil, &mockDBLoader, nil, nil)
+	userService := NewUserService(nil, nil, nil, nil, &mockDBLoader, nil, nil, nil)
 
 	res := userService.SaveUser(dto.GoogleProfile{}, nil)
 
@@ -179,7 +179,7 @@ func TestSaveUser_TransactionFailed(t *testing.T) {
 		},
 	}
 
-	userService := NewUserService(nil, nil, nil, nil, &mockDBLoader, nil, nil);
+	userService := NewUserService(nil, nil, nil, nil, &mockDBLoader, nil, nil, nil);
 
 	res := userService.SaveUser(dto.GoogleProfile{}, nil);
 
@@ -216,7 +216,7 @@ func TestSaveUser_GetChannelInfoFailed(t *testing.T) {
 		},
 	}
 
-	UserService := NewUserService(nil, nil, nil, nil, &mockDBLoader, nil, mockYoutubeservice)
+	UserService := NewUserService(nil, nil, nil, nil, &mockDBLoader, nil, mockYoutubeservice, nil)
 	res := UserService.SaveUser(dto.GoogleProfile{}, nil)
 
 	if res.Status != fiber.StatusBadRequest {
@@ -267,7 +267,7 @@ func TestSaveUser_SaveFailed(t *testing.T) {
 		},
 	}
 
-	userService := NewUserService(&mockUserRepo, nil, nil, nil, &mockDBLoader, nil, mockYoutubeService)
+	userService := NewUserService(&mockUserRepo, nil, nil, nil, &mockDBLoader, nil, mockYoutubeService, nil)
 
 	res := userService.SaveUser(dto.GoogleProfile{}, nil);
 
@@ -326,7 +326,7 @@ func TestSaveUser_SaveTokenFailed(t *testing.T) {
 	}
 
 
-	userService := NewUserService(&mockUserRepo, &mockTokenRepo, nil, nil, &mockDBLoader, nil, mockYoutubeService)
+	userService := NewUserService(&mockUserRepo, &mockTokenRepo, nil, nil, &mockDBLoader, nil, mockYoutubeService, nil)
 
 	res := userService.SaveUser(dto.GoogleProfile{}, nil);
 
@@ -459,7 +459,13 @@ func TestSaveUser_Success(t *testing.T) {
 		},
 	}
 
-	userService := NewUserService(&mockUserRepo, &mockTokenRepo, nil, &mockAuthentication, &mockDBLoader, nil, mockYoutubeService)
+	mockRedisStore := mock.MockRedisUserStore{
+		SaveUserFunc: func(user model.User) error {
+			return nil
+		},
+	}
+
+	userService := NewUserService(&mockUserRepo, &mockTokenRepo, nil, &mockAuthentication, &mockDBLoader, nil, mockYoutubeService, &mockRedisStore)
 	res := userService.SaveUser(dto.GoogleProfile{}, nil)
 
 	if res.Status != fiber.StatusOK {
