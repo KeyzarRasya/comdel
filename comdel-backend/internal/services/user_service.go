@@ -16,6 +16,7 @@ import (
 type UserService interface{
 	SaveUser(user dto.GoogleProfile, oauthToken *oauth2.Token) dto.Response
 	GetUser(cookies string) dto.Response
+	RedisGetAll(userId string) dto.Response
 }
 
 type UserServiceImpl struct {
@@ -26,6 +27,7 @@ type UserServiceImpl struct {
 	OAuth config.OAuthProvider
 	DBLoader config.DBLoader
 	Authenticator Authenticator
+	Redis UserStore
 }
 
 /*
@@ -42,6 +44,7 @@ func NewUserService(
 	dbLoader 			config.DBLoader,
 	oAuth 				config.OAuthProvider,
 	ytService			YoutubeService,
+	redis				UserStore,
 ) UserService {
 	return &UserServiceImpl{
 		UserRepository: userRepository, 
@@ -51,6 +54,25 @@ func NewUserService(
 		DBLoader: dbLoader,
 		OAuth: oAuth,
 		YtService: ytService,
+		Redis: redis,
+	}
+}
+
+func (us *UserServiceImpl) RedisGetAll(userId string) dto.Response {
+	user, err := us.Redis.GetUser(userId)
+
+	if err != nil {
+		return dto.Response{
+			Status: fiber.StatusBadRequest,
+			Message: "Redis Cache Miss",
+			Data: err,
+		}
+	}
+
+	return dto.Response{
+		Status: fiber.StatusOK,
+		Message: "Redis Cache Hit",
+		Data: user,
 	}
 }
 
@@ -101,9 +123,8 @@ func (us *UserServiceImpl) SaveUser(user dto.GoogleProfile, oauthToken *oauth2.T
 	}
 
 	log.Info(googleId)
-
+	modelUser := user.Parse()
 	if !isAvail {
-		modelUser := user.Parse()
 		modelUser.YoutubeId = channel.Id;
 		modelUser.TitleSnippet = channel.Snippet.Title;
 
@@ -116,6 +137,7 @@ func (us *UserServiceImpl) SaveUser(user dto.GoogleProfile, oauthToken *oauth2.T
 			}
 		}
 
+		modelUser.UserId = userId;
 		log.Info("UserId", userId)
 
 		if err := us.TokenRepository.Save(tx, oauthToken, userId); err != nil {
@@ -134,6 +156,7 @@ func (us *UserServiceImpl) SaveUser(user dto.GoogleProfile, oauthToken *oauth2.T
 				Data: err.Error(),
 			}
 		}
+		modelUser.UserId = userId;
 	}
 
 
@@ -158,8 +181,17 @@ func (us *UserServiceImpl) SaveUser(user dto.GoogleProfile, oauthToken *oauth2.T
 		}
 	}
 
+	
 	tx.Commit(context.Background());
-
+	
+	if err := us.Redis.SaveUser(modelUser); err != nil {
+		return dto.Response{
+			Status: fiber.StatusOK,
+			Message: "Success but redis error",
+			Data: user,
+		}
+	}
+	
 	return dto.Response{
 		Status: fiber.StatusOK,
 		Message: "Success",
