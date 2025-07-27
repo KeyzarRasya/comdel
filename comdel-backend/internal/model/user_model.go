@@ -1,17 +1,47 @@
 package model
 
+import (
+	"fmt"
+	"os"
+
+	"github.com/gofiber/fiber/v2/log"
+)
+
 type User struct {
-	UserId			string			`json:"userId"`
-	Name 			string			`json:"name"`
-	GivenName		string			`json:"givenName"`
-	Email			string			`json:"email"`
+	UserId			string			`json:"userId" redis:"userId"`
+	Name 			string			`json:"name" redis:"name"`
+	GivenName		string			`json:"givenName" redis:"givenName"`
+	Email			string			`json:"email" redis:"email"`
 	VerifiedEmail	bool			`json:"verifiedEmail"`
-	Subscription	string			`json:"subscription"`
-	PremiumPlan		string			`json:"premiumPlan"`
+	Subscription	string			`json:"subscription" redis:"subscription"`
+	PremiumPlan		string			`json:"premiumPlan" redis:"premiumPlan"`
 	Isverified		bool			`json:"isVerified"`
-	Picture			string			`json:"picture"`
+	Picture			string			`json:"picture" redis:"picture"`
 	Videos			[]*Videos		`json:"videos"`
-	GId				string			`json:"g_id"`
+	GId				string			`json:"g_id" redis:"gid"`
 	YoutubeId		string			`json:"youtubeId"`
 	TitleSnippet	string			`json:"title_snippet"`
+}
+
+func (u *User) RedisHashString() []string {
+	hashField := []string{
+		"userId", u.UserId,
+		"name", u.Name,
+		"givenName", u.GivenName,
+		"email", u.Email,
+		"subscription", u.Subscription,
+		"premiumPlan", u.PremiumPlan,
+		"picture", u.Picture,
+		"gid", u.GId,
+	}
+
+	return hashField
+}
+
+func RedisKey(userId string) string {
+	redisKey := os.Getenv("REDIS_USER_KEY")
+	log.Info("RedisKey")
+	log.Info(redisKey)
+	log.Info(userId)
+	return fmt.Sprintf("%s:%s", redisKey, userId);
 }
