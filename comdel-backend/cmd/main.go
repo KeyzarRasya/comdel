@@ -13,6 +13,7 @@ import (
 	"github.com/gofiber/fiber/v2/log"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/joho/godotenv"
+	"github.com/redis/go-redis/v9"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 )
@@ -37,7 +38,7 @@ import (
 // c.Start()
 
 func main() {
-	err := godotenv.Load("../.env");
+	err := godotenv.Load(".env");
 
 	if err != nil {
 		log.Fatal("Failed to load .env files");
@@ -104,6 +105,18 @@ func main() {
 
 	/* Dependency Config*/
 	auth := services.Authentication{}
+	redisAddr := os.Getenv("REDIS_ADDR")
+
+	log.Info("RedisADdr")
+	log.Info(redisAddr);
+	redisClient := redis.NewClient(&redis.Options{
+		Addr: os.Getenv("REDIS_ADDR"),
+		Password: "",
+		DB: 0,
+		Protocol: 2,
+	})
+	redisService := services.NewRedisService(redisClient)
+	
 	
 	/*
 	===START===
@@ -119,7 +132,7 @@ func main() {
 		&dbLoader,
 		googleOauth, 
 		&ytService,
-
+		&redisService,
 	)
 
 	//2. Video Service Dependency Injection
