@@ -16,7 +16,7 @@ type MockUserRepository struct {
 	IsCooldownFunc 			func(userId string)								(bool, error);
 	IsGIDAvailFunc			func(tx config.DBTx, gid string, googleId *string)	(bool, error);
 
-	SaveReturningIdFunc 		func(tx config.DBTx, user model.User, userId *string)	error;
+	SaveReturningIdFunc 		func(tx config.DBTx, user model.User)	(string, error);
 	DeactivateSubscriptionFunc 	func(tx config.DBTx, userId string)						error;
 
 	UpdateVideosFunc 			func(tx config.DBTx, videoId string, userId string, cooldown time.Time)	error
@@ -51,8 +51,8 @@ func (mur *MockUserRepository) IsGIDAvail(tx config.DBTx, gid string, googleId *
 	return mur.IsGIDAvailFunc(tx, gid, googleId);
 }
 
-func (mur *MockUserRepository) SaveReturningId(tx config.DBTx, user model.User, userId *string) error {
-	return mur.SaveReturningIdFunc(tx, user, userId);
+func (mur *MockUserRepository) SaveReturningId(tx config.DBTx, user model.User) (string, error) {
+	return mur.SaveReturningIdFunc(tx, user);
 }
 
 func (mur *MockUserRepository)DeactivateSubscription(tx config.DBTx, userId string) error {
