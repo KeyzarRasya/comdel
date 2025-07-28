@@ -15,7 +15,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-24.04
+    runs-on: self-hosted
     name: build-dependency
     steps:
       - name: Checkout code
@@ -46,7 +46,7 @@ jobs:
   test:
     name: test-dependency
     needs: build
-    runs-on: ubuntu-24.04
+    runs-on: self-hosted
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
