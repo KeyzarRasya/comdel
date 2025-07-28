@@ -35,7 +35,7 @@ func NewRoute(
 func (r *Route) UserRoute(app *fiber.App) {
 	
 	app.Route("/user", func (route fiber.Router) {
-		route.Get("/", middleware.AuthenticationMiddleware, middleware.RefreshTokenMiddleware, r.UserHandlers.Main);
+		// route.Get("/", middleware.AuthenticationMiddleware, middleware.RefreshTokenMiddleware, r.UserHandlers.Main);
 		route.Get("/info", middleware.AuthenticationMiddleware, middleware.RefreshTokenMiddleware, r.SubscriptionMiddleware.LazyUnsubscribe, r.UserHandlers.UserInfo)
 	})
 
