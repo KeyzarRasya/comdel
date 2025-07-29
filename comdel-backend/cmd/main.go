@@ -145,6 +145,7 @@ func main() {
 		&ytService,
 		&dbLoader,
 		&auth,
+		&redisService,
 	)
 
 	// 3. Payment Service Dependency Injection
