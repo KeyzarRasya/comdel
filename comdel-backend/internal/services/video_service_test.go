@@ -38,7 +38,13 @@ func TestUploadVideo_VideoMetadataNotComplete(t *testing.T) {
 		Strategy: "",
 	}
 
-	videoService := NewVideoService(nil, nil, nil, nil, nil, nil, &mockDBLoader, &mockAutheticator)
+	mockRedisRepo := mock.MockRedisUserStore{
+		SaveVideoIdFunc: func(videoId, userId string) error {
+			return nil
+		},
+	}
+
+	videoService := NewVideoService(nil, nil, nil, nil, nil, nil, &mockDBLoader, &mockAutheticator, &mockRedisRepo)
 
 	res := videoService.UploadVideo("cookie-123", metadata)
 
@@ -77,7 +83,13 @@ func TestUploadVideo_GetYoutubeIdFailed(t *testing.T) {
 		},
 	}
 
-	videoService := NewVideoService(&mockUserRepo, nil, nil, nil, nil,nil, &mockDBLoader, &mockAutheticator);
+	mockRedisRepo := mock.MockRedisUserStore{
+		SaveVideoIdFunc: func(videoId, userId string) error {
+			return nil
+		},
+	}
+
+	videoService := NewVideoService(&mockUserRepo, nil, nil, nil, nil,nil, &mockDBLoader, &mockAutheticator, &mockRedisRepo);
 	res := videoService.UploadVideo("cookie-123", metadata)
 
 	if res.Status != fiber.StatusBadRequest {
@@ -126,7 +138,13 @@ func TestUploadVideo_VideoListFailed(t *testing.T) {
 		},
 	}
 
-	videoService := NewVideoService(&mockUserRepo, nil, &mockTokenRepo, nil, nil, mockYtService, &mockDBLoader, &mockAutheticator)
+	mockRedisRepo := mock.MockRedisUserStore{
+		SaveVideoIdFunc: func(videoId, userId string) error {
+			return nil
+		},
+	}
+
+	videoService := NewVideoService(&mockUserRepo, nil, &mockTokenRepo, nil, nil, mockYtService, &mockDBLoader, &mockAutheticator, &mockRedisRepo)
 	res := videoService.UploadVideo("cookie-123", metadata)
 
 	if res.Status != fiber.StatusBadRequest {
@@ -180,7 +198,13 @@ func TestUploadVideo_NotOwnerOfVideo(t *testing.T) {
 		},
 	}
 
-	videoService := NewVideoService(&mockUserRepo, nil, &mockTokenRepo, nil, nil, mockYtService, &mockDBLoader, &mockAutheticator)
+	mockRedisRepo := mock.MockRedisUserStore{
+		SaveVideoIdFunc: func(videoId, userId string) error {
+			return nil
+		},
+	}
+
+	videoService := NewVideoService(&mockUserRepo, nil, &mockTokenRepo, nil, nil, mockYtService, &mockDBLoader, &mockAutheticator, &mockRedisRepo)
 	res := videoService.UploadVideo("cookie-123", metadata)
 
 	if res.Status != fiber.StatusBadRequest {
@@ -259,7 +283,13 @@ func TestUploadVideo_SaveVideo(t *testing.T) {
 		},
 	}
 
-	videoService := NewVideoService(&mockUserRepo, &mockVideoService, &mockTokenRepo, nil, nil, mockYtService, &mockDBLoader, &mockAutheticator)
+	mockRedisRepo := mock.MockRedisUserStore{
+		SaveVideoIdFunc: func(videoId, userId string) error {
+			return nil
+		},
+	}
+
+	videoService := NewVideoService(&mockUserRepo, &mockVideoService, &mockTokenRepo, nil, nil, mockYtService, &mockDBLoader, &mockAutheticator, &mockRedisRepo)
 	res := videoService.UploadVideo("cookie-123", metadata)
 
 	if res.Status != fiber.StatusBadRequest {

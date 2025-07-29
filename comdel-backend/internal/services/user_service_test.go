@@ -58,7 +58,17 @@ func TestGetUser_UserNotFound(t *testing.T) {
 		},
 	}
 
-	service := NewUserService(&userRepo, nil, nil, &auth, nil, nil, nil, nil)
+	mockRedisRepo := mock.MockRedisUserStore{
+		GetUserAndVideoFunc: func(userId string) (*model.User, []string, error) {
+			return nil, nil, nil
+		},
+
+		IsCacheMissFunc: func(err error) bool {
+			return true
+		},
+	}
+
+	service := NewUserService(&userRepo, nil, nil, &auth, nil, nil, nil, &mockRedisRepo)
 	resp := service.GetUser("valid-cookie")
 
 	if resp.Status != fiber.StatusBadRequest {
@@ -88,7 +98,17 @@ func TestGetUser_VideoFetchFailed(t *testing.T) {
 		},
 	}
 
-	service := NewUserService(&userRepo, nil, &videoRepo, &auth, nil, nil, nil, nil)
+	mockRedisRepo := mock.MockRedisUserStore{
+		GetUserAndVideoFunc: func(userId string) (*model.User, []string, error) {
+			return nil, nil, nil
+		},
+
+		IsCacheMissFunc: func(err error) bool {
+			return true
+		},
+	}
+
+	service := NewUserService(&userRepo, nil, &videoRepo, &auth, nil, nil, nil, &mockRedisRepo)
 	resp := service.GetUser("valid-cookie")
 
 	if resp.Status != fiber.StatusBadRequest {
@@ -124,7 +144,17 @@ func TestGetUser_Success(t *testing.T) {
 		},
 	}
 
-	service := NewUserService(&userRepo, nil, &videoRepo, &auth, nil, nil, nil, nil)
+	mockRedisRepo := mock.MockRedisUserStore{
+		GetUserAndVideoFunc: func(userId string) (*model.User, []string, error) {
+			return nil, nil, nil
+		},
+
+		IsCacheMissFunc: func(err error) bool {
+			return true
+		},
+	}
+
+	service := NewUserService(&userRepo, nil, &videoRepo, &auth, nil, nil, nil, &mockRedisRepo)
 	resp := service.GetUser("valid-cookie")
 
 	if resp.Status != fiber.StatusOK {
