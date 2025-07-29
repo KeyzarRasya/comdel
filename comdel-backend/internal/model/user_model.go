@@ -1,10 +1,9 @@
 package model
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
-
-	"github.com/gofiber/fiber/v2/log"
 )
 
 type User struct {
@@ -38,10 +37,21 @@ func (u *User) RedisHashString() []string {
 	return hashField
 }
 
-func RedisKey(userId string) string {
+func (u *User) JSON() string {
+	jsonBytes, err := json.Marshal(u)
+	if err != nil {
+		return "{}"
+	}
+	return string(jsonBytes)
+}
+
+
+func RedisUserKey(userId string) string {
 	redisKey := os.Getenv("REDIS_USER_KEY")
-	log.Info("RedisKey")
-	log.Info(redisKey)
-	log.Info(userId)
+	return fmt.Sprintf("%s:%s", redisKey, userId);
+}
+
+func RedisUserVideoKey(userId string) string {
+	redisKey := os.Getenv("REDIS_VIDEO_USER_KEY")
 	return fmt.Sprintf("%s:%s", redisKey, userId);
 }
