@@ -31,6 +31,7 @@ type VideoServiceImpl struct {
 	YtService 			YoutubeService
 	DBLoader 			config.DBLoader
 	Authentication		Authenticator
+	RedisUserStore		UserStore
 }
 
 /*
@@ -48,6 +49,7 @@ func NewVideoService(
 	ytService YoutubeService,
 	dbLoader config.DBLoader,
 	authentication Authenticator,
+	userStore UserStore,
 ) VideoService {
 	return &VideoServiceImpl{
 		UserRepository: userRepository,
@@ -58,6 +60,7 @@ func NewVideoService(
 		YtService: ytService,
 		DBLoader: dbLoader,
 		Authentication: authentication,
+		RedisUserStore: userStore,
 	}
 }
 
@@ -186,12 +189,13 @@ func (vs *VideoServiceImpl) UploadVideo(cookie string, upload dto.UploadVideos) 
 	}
 	
 	var initialDetection dto.Response = vs.CommentService.FetchAndDeleteComment(cookie, videoId)
-	
 	if initialDetection.Status == fiber.StatusBadRequest {
 		return initialDetection;
 	}
 	
 	tx.Commit(context.Background());
+
+	vs.RedisUserStore.SaveVideoId(videoId, userId);
 
 	return dto.Response{
 		Status: fiber.StatusOK,

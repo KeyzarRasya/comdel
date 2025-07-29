@@ -59,7 +59,7 @@ func NewUserService(
 }
 
 func (us *UserServiceImpl) RedisGetAll(userId string) dto.Response {
-	user, err := us.Redis.GetUser(userId)
+	user,_, err := us.Redis.GetUserAndVideo(userId)
 
 	if err != nil {
 		return dto.Response{
@@ -203,6 +203,7 @@ func (us *UserServiceImpl) SaveUser(user dto.GoogleProfile, oauthToken *oauth2.T
 func (us *UserServiceImpl) GetUser(cookies string) dto.Response {
 	var videosId []string;
 	var videos []*model.Videos;
+	var user *model.User;
 	
 	if cookies == "" {
 		return dto.Response{
@@ -221,14 +222,21 @@ func (us *UserServiceImpl) GetUser(cookies string) dto.Response {
 		}
 	}
 
-	user, videosId, err := us.UserRepository.GetByIdWithVideo(userId);
-	if err != nil {
-		return dto.Response{
-			Status: fiber.StatusBadRequest,
-			Message: "Failed to get user information",
-			Data: err,
+	user, videosId, err = us.Redis.GetUserAndVideo(userId)
+
+	if us.Redis.IsCacheMiss(err) {
+
+		user, videosId, err = us.UserRepository.GetByIdWithVideo(userId);
+		if err != nil {
+			return dto.Response{
+				Status: fiber.StatusBadRequest,
+				Message: "Failed to get user information",
+				Data: err,
+			}
 		}
 	}
+	
+
 
 
 	for _, id := range videosId {
