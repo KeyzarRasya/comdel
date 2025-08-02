@@ -225,7 +225,6 @@ func (us *UserServiceImpl) GetUser(cookies string) dto.Response {
 	user, videosId, err = us.Redis.GetUserAndVideo(userId)
 
 	if us.Redis.IsCacheMiss(err) {
-
 		user, videosId, err = us.UserRepository.GetByIdWithVideo(userId);
 		if err != nil {
 			return dto.Response{
@@ -235,9 +234,6 @@ func (us *UserServiceImpl) GetUser(cookies string) dto.Response {
 			}
 		}
 	}
-	
-
-
 
 	for _, id := range videosId {
 		var video *model.Videos;
