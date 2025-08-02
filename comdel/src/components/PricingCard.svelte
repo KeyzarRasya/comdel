@@ -6,9 +6,9 @@
     
 </script>
 
-<div class="h-5/6 w-2/6 bg-gradient-to-bl from-[#222222] to-[#333333] rounded-lg flex flex-col p-3">
+<div class="h-3/6 md:h-5/6 w-5/6 md:w-2/6 bg-gradient-to-bl from-[#222222] to-[#333333] rounded-lg flex flex-col p-3">
 
-    <div class="title-pricing h-6/12   border-white">
+    <div class="title-pricing h-10/12 md:h-6/12   border-white">
         <img src={imgSvg} alt="" class="h-12 w-12">
         <p class="text-[#EEEEEE] text-2xl mt-5 font-extrabold">{planName}</p>
         <p class="text-xs text-[#DDDDDD] mt-3 font-sans">{description}</p>

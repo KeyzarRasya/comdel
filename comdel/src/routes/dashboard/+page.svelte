@@ -66,7 +66,7 @@
     {#if !hidePremiumModal}
         <PremiumModal onCancel={premiumButtonClosed}/>
     {/if}
-    <ModalPopup isHide={hideModal} onClose={handleModalClose} onItemAdded={itemAdded}/>
+    <ModalPopup isHide={hideModal} onClose={handleModalClose} onItemAdded={itemAdded} baseUrl={data.baseUrl}/>
     <div class=" h-full w-1/6 border-r-[0.5px] border-[#333333]">
         <div class="h-2/6 w-full border-b border-[#333333] flex flex-col justify-evenly items-center">
             <div 

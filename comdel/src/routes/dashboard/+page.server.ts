@@ -30,15 +30,13 @@ export const load: PageServerLoad = async ({cookies, fetch}) => {
     
         return {
             token,
-            userInfo
+            userInfo,
+            baseUrl:BASE_URL
         }
 
-    }catch(errs){
-        console.log(errs)
-        return{
-            token:null,
-            userInfo:errs
-        }
+    }catch(err){
+        console.log(err)
+        throw redirect(307, "/error")
     }
     
 }

@@ -11,6 +11,8 @@
     var isVerifyClicked = $state(false);
     var verifyClicked = $state(0)
     var messageCheck = $state("")
+    var thumbnail = $state("")
+    var title = $state("")
     
     var uploadResult = $state({
         status:400,
@@ -22,7 +24,7 @@
     
     let strategy = $state("AUTO");
 
-    var {isHide, onClose, onItemAdded} = $props();
+    var {isHide, onClose, onItemAdded, baseUrl} = $props();
 
     const isYoutubeLink = (url: string) =>
   /^https?:\/\/(www\.)?(youtube\.com|youtu\.be)\/.+$/.test(url);
@@ -42,14 +44,15 @@
     }
 
     const onCheckOwnership = async () => {
-        const response = await fetch(`http://backend:8080/videos/ownership/?vid=${link}`, {
+        const response = await fetch(`${baseUrl}/videos/ownership/?vid=${link}`, {
             method:"GET",
             credentials:"include"
         })
 
+       
         const result = await response.json()
-
-        console.log(result)
+        thumbnail = result.data.thumbnail;
+        title = result.data.title;
         
         if (result.status === 200) {
             isOwnershipValid = true;
@@ -72,13 +75,13 @@
     }
 
     const onSubmitLink = async(e) => {
-
-        const response = await fetch(`http://backend:8080/videos/upload/?vid=${link}&st=${strategy}&sc=${scheduler}`, {
+        const response = await fetch(`${baseUrl}/videos/upload/?vid=${link}&st=${strategy}&sc=${scheduler}`, {
             method:"POST",
             credentials:"include"
         })
 
         const result = await response.json();
+        
         console.log(result);
         
         uploadResult = result;
@@ -152,10 +155,13 @@
                 <div class="modal h-4/6 w-2/6 bg-[#222222] p-5 rounded-lg">
                     <div class="w-full h-full flex flex-col">
                         <p class="text-white text-xl font-bold">Confirmation</p>
-                        <div class="h-3/6 w-5/6 bg-white mt-5 self-center rounded-md">
+                        <div 
+                            class="h-3/6 w-5/6 mt-5 self-center rounded-md"
+                            style="background-image: url({thumbnail}); background-position: center; background-size: cover;"
+                            >
         
                         </div>
-                        <p class="w-5/6 self-center mt-3 text-[#DDDDDD] text-sm">Tutorial pointer pemula</p>
+                        <p class="w-5/6 self-center mt-3 text-[#DDDDDD] text-sm">{title}</p>
 
                         <div class=" h-2/6 flex justify-end items-end">
                             <div class="w-3/6 h-3/6  flex items-end justify-between">   
