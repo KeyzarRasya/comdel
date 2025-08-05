@@ -18,6 +18,15 @@ services:
       - db
     depends_on:
       - database
+      - model
+    
+  model:
+    build: ./comdel-model-api
+    ports:
+      - "8000:8000"
+    networks:
+      - db
+  
   database:
     image: postgres:14
     ports:

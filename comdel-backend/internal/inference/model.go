@@ -25,7 +25,7 @@ type ModelResponse struct {
 func (m *ModelAPI) Detect(comment string) *ModelResponse {
 	var response ModelResponse;
 	var query string = url.QueryEscape(comment);
-	var endpoint string = fmt.Sprintf("http://localhost:8000/comment/detect/?comment=%s", query);
+	var endpoint string = fmt.Sprintf("http://model:8000/comment/detect/?comment=%s", query);
 	resp, err := http.Get(endpoint);
 
 	if err != nil {
